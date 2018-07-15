@@ -1,0 +1,13 @@
+{
+  "name": "imagenet_32x32_condf,"
+  "image_size": 32,
+  "anchor_size": 32,
+  "width": 512,
+  "depth": 48,
+  "y_cond": true,
+  "weight_y": 0.01,
+  "n_bits_x": 8,
+  "n_levels": 3,
+  "coupling": "affine",
+  "n_batch_train": 512
+}

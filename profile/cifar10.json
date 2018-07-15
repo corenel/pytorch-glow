@@ -1,0 +1,13 @@
+{
+  "name": "cifar10",
+  "image_size": 32,
+  "anchor_size": 32,
+  "width": 512,
+  "depth": 32,
+  "y_cond": false,
+  "weight_y": 0.0,
+  "n_bits_x": 8,
+  "n_levels": 3,
+  "coupling": "affine",
+  "n_batch_train": 512
+}

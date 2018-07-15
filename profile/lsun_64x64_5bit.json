@@ -1,0 +1,13 @@
+{
+  "name": "lsun_64x64_5bit",
+  "image_size": 64,
+  "anchor_size": 32,
+  "width": 512,
+  "depth": 48,
+  "y_cond": false,
+  "weight_y": 0.0,
+  "n_bits_x": 5,
+  "n_levels": 4,
+  "coupling": "additive",
+  "n_batch_train": 128
+}
