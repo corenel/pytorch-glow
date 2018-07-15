@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 
 
-class Actnorm(nn.Module):
+class ActNorm(nn.Module):
     """
     Activation normalization layer
     """
@@ -145,3 +145,31 @@ class Actnorm(nn.Module):
         # (N * H * W, C) -> (N, H, W, C) -> (N, C, H, W)
         x = x.view(*x_shape).permute([0, 3, 1, 2])
         return x, logdet
+
+
+class LinearZero(nn.Linear):
+    def __init__(self, in_features, out_features, bias=True, logscale_factor=3.):
+        """
+        Linear layer with zero initialization
+
+        :param in_features: size of each input sample
+        :type in_features: int
+        :param out_features: size of each output sample
+        :type out_features: int
+        :param bias: whether to learn an additive bias.
+        :type bias: bool
+        :param logscale_factor: factor of logscale
+        :type logscale_factor: float
+        """
+        super().__init__(in_features, out_features, bias)
+        self.logscale_factor = logscale_factor
+        # zero initialization
+        self.weight.data.zero_()
+        self.bias.data.zero_()
+        # register parameter
+        self.register_parameter('logs', nn.Parameter(torch.zeros(out_features)))
+
+    def forward(self, x):
+        output = super().forward(x)
+        output *= torch.exp(self.logs * self.logscale_factor)
+        return output
