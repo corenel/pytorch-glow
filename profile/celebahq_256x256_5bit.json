@@ -1,5 +1,5 @@
 {
-  "name": "celebahq_256x256_5bit",
+  "profile": "celebahq_256x256_5bit",
   "image_size": 256,
   "anchor_size": 32,
   "width": 512,

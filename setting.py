@@ -1,4 +1,5 @@
 import os
+import json
 
 # General
 verbose = False
@@ -6,10 +7,13 @@ root_dir = '.'
 restore_dir = os.path.join(root_dir, 'snapshot')
 log_dir = os.path.join(root_dir, 'log')
 data_dir = os.path.join(root_dir, 'data')
+profile_dir = os.path.join(root_dir, 'profile')
 
 # Dataset hyper-parameters:
 # problems = ['celeba', 'cifar10', 'mnist', 'imagenet', 'lsun']
 problem = 'celeba'
+# problem profile
+profile = 'celebahq_256x256_5bit'
 # data augmentation level ['none', 'standard', 'extra']
 dal = 'standard'
 # threads for parallel file reading

@@ -1,5 +1,5 @@
 {
-  "name": "lsun_64x64_5bit",
+  "profile": "lsun_64x64_5bit",
   "image_size": 64,
   "anchor_size": 32,
   "width": 512,

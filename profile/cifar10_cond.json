@@ -1,5 +1,5 @@
 {
-  "name": "cifar10_cond",
+  "profile": "cifar10_cond",
   "image_size": 32,
   "anchor_size": 32,
   "width": 512,

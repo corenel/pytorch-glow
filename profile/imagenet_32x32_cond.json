@@ -1,5 +1,5 @@
 {
-  "name": "imagenet_32x32_condf,"
+  "profile": "imagenet_32x32_condf,"
   "image_size": 32,
   "anchor_size": 32,
   "width": 512,
