@@ -5,13 +5,9 @@ import numpy as np
 
 
 class ActNorm(nn.Module):
-    """
-    Activation normalization layer
-    """
-
     def __init__(self, num_features, scale=1., logscale_factor=3., batch_variance=False):
         """
-        Initialize activation normalization layer
+        Activation normalization layer
 
         :param num_features: number of channels
         :type num_features: int
@@ -170,6 +166,32 @@ class LinearZero(nn.Linear):
         self.register_parameter('logs', nn.Parameter(torch.zeros(out_features)))
 
     def forward(self, x):
+        """
+        Forward linear zero layer
+
+        :param x: input
+        :type x: torch.Tensor
+        :return: output
+        :rtype: torch.Tensor
+        """
         output = super().forward(x)
         output *= torch.exp(self.logs * self.logscale_factor)
         return output
+
+
+class Conv2D(nn.Conv2d):
+    @staticmethod
+    def get_edge_padding(pad, kernel_size, stride):
+        pass
+
+    def __init__(self, in_channels, out_channels,
+                 kernel_size=[3, 3], stride=1, pad='same',
+                 do_weightnorm=False, weight_std=0.05, do_actnorm=True,
+                 dilation=1, groups=1, bias=True):
+        padding = None
+        super().__init__(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias)
+
+    def forward(self, x):
+        return super().forward(x)
+
+
