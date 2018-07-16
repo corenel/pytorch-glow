@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import unittest
 
-from network.module import (ActNorm, LinearZero, Conv2d, Conv2dZero,
+from network.module import (ActNorm, LinearZeros, Conv2d, Conv2dZeros,
                             Invertible1x1Conv, Split2d)
 
 
@@ -19,12 +19,12 @@ class TestModule(unittest.TestCase):
         eps = 1e-6
         self.assertTrue(0 <= float(torch.max(torch.abs(x_ - x))) <= eps)
 
-    def test_linear_zero(self):
+    def test_linear_zeros(self):
         # initial variables
         x = torch.Tensor(np.random.rand(16))
-        linear_zero = LinearZero(16, 16)
+        linear_zeros = LinearZeros(16, 16)
         # forward
-        y = linear_zero(x)
+        y = linear_zeros(x)
         # assertion
         self.assertTrue(torch.equal(y, torch.zeros(16)))
 
@@ -37,14 +37,14 @@ class TestModule(unittest.TestCase):
         # assertion
         self.assertTupleEqual((2, 5, 4, 4), tuple(y.shape))
 
-    def test_conv2d_zero(self):
+    def test_conv2d_zeros(self):
         # initial variables
         x = torch.Tensor(np.random.rand(2, 16, 4, 4))
-        conv2d = Conv2dZero(in_channels=16, out_channels=5)
+        conv2d_zeros = Conv2dZeros(in_channels=16, out_channels=5)
         # forward and reverse flow
-        y = conv2d(x)
+        y = conv2d_zeros(x)
         # assertion
-        self.assertTupleEqual((5, 16), tuple(conv2d.weight.shape[:2]))
+        self.assertTupleEqual((5, 16), tuple(conv2d_zeros.weight.shape[:2]))
         self.assertTupleEqual((2, 5, 4, 4), tuple(y.shape))
 
     def test_invertible_1x1_conv(self):

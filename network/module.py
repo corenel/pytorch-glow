@@ -143,7 +143,7 @@ class ActNorm(nn.Module):
         return x, logdet
 
 
-class LinearZero(nn.Linear):
+class LinearZeros(nn.Linear):
     def __init__(self, in_features, out_features, bias=True, logscale_factor=3.):
         """
         Linear layer with zero initialization
@@ -252,7 +252,7 @@ class Conv2d(nn.Conv2d):
         return x
 
 
-class Conv2dZero(nn.Conv2d):
+class Conv2dZeros(nn.Conv2d):
 
     def __init__(self, in_channels, out_channels,
                  kernel_size=(3, 3), stride=1, padding_type='SAME',
@@ -340,10 +340,39 @@ class Invertible1x1Conv(nn.Module):
             return z, dlogdet
 
 
-class Split2d(nn.Module):
+class GaussianDiag:
+    @staticmethod
+    def eps(mean):
+        return torch.randn_like(mean)
 
-    def __init__(self):
+    @staticmethod
+    def flatten_sum(s):
+        if len(s.shape) == 4:
+            flatten = s.view(s.shape[0], -1)
+            return torch.sum(flatten, dim=1)
+        else:
+            raise NotImplementedError()
+
+    @staticmethod
+    def logps(mean, logs, x):
+        return -0.5 * (np.log(2 * np.pi) + 2. * logs + (x - mean) ** 2 / torch.exp(2. * logs))
+
+    @staticmethod
+    def logp(mean, logs, x):
+        s = GaussianDiag.logps(mean, logs, x)
+        return GaussianDiag.flatten_sum(s)
+
+    @staticmethod
+    def sample(mean, logs):
+        eps = GaussianDiag.eps(mean)
+        return mean + torch.exp(logs) * eps
+
+
+class Split2d(nn.Module):
+    def __init__(self, num_channels):
         super().__init__()
+        self.num_channels = num_channels
+        self.conv2d_zeros = Conv2dZeros(num_channels // 2, num_channels)
 
     @staticmethod
     def unsequeeze2d(x, factor=2):
@@ -373,5 +402,11 @@ class Split2d(nn.Module):
         x = x.view(-1, nc * factor * factor, nh // factor, nw // factor)
         return x
 
-    def forward(self, x):
+    def prior(self, z):
+        h = self.conv2d_zeros(z)
+        mean = h[:, 0::2, :, :]
+        logs = h[:, 1::2, :, :]
+        return mean, logs
+
+    def forward(self, x, logdet=None, reverse=False):
         pass
