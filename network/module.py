@@ -179,19 +179,43 @@ class LinearZero(nn.Linear):
         return output
 
 
-class Conv2D(nn.Conv2d):
+class Conv2d(nn.Conv2d):
     @staticmethod
-    def get_edge_padding(pad, kernel_size, stride):
-        pass
+    def _get_padding(padding_type, kernel_size, stride):
+        # mentioned in https://github.com/pytorch/pytorch/issues/3867#issuecomment-361775080
+        # behaves as 'SAME' padding in TensorFlow
+        # independent on input size when stride is 1
+        assert padding_type in ['SAME', 'VALID'], "Unsupported padding type: {}".format(padding_type)
+        if padding_type == 'SAME':
+            assert stride == 1, "'SAME' padding only supports stride=1"
+            return tuple((k - 1) // 2 for k in kernel_size)
+        return tuple(0 for _ in kernel_size)
 
     def __init__(self, in_channels, out_channels,
-                 kernel_size=[3, 3], stride=1, pad='same',
-                 do_weightnorm=False, weight_std=0.05, do_actnorm=True,
-                 dilation=1, groups=1, bias=True):
-        padding = None
-        super().__init__(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias)
+                 kernel_size=(3, 3), stride=1, padding_type='SAME',
+                 do_weightnorm=False, do_actnorm=True,
+                 dilation=1, groups=1):
+        padding = self._get_padding(padding_type, kernel_size, stride)
+        super().__init__(in_channels, out_channels,
+                         kernel_size, stride, padding,
+                         dilation, groups,
+                         bias=(not do_actnorm))
+        self.do_weight_norm = do_weightnorm
+        self.do_actnorm = do_actnorm
+
+        self.weight.data.normal_(mean=0.0, std=0.05)
+        if self.do_actnorm:
+            self.actnorm = ActNorm(out_channels)
+        else:
+            self.bias.data.zero_()
 
     def forward(self, x):
-        return super().forward(x)
-
-
+        x = super().forward(x)
+        if self.do_weight_norm:
+            # normalize N, H and W dims
+            F.normalize(x, p=2, dim=0)
+            F.normalize(x, p=2, dim=2)
+            F.normalize(x, p=2, dim=3)
+        if self.do_actnorm:
+            x, _ = self.actnorm(x)
+        return x
