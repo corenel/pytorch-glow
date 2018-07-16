@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import unittest
 
-from network.module import (ActNorm, LinearZero, Conv2d)
+from network.module import (ActNorm, LinearZero, Conv2d, Conv2dZero)
 
 
 class TestModule(unittest.TestCase):
@@ -10,7 +10,7 @@ class TestModule(unittest.TestCase):
     def test_actnorm(self):
         # initial variables
         x = torch.Tensor(np.random.rand(2, 16, 4, 4))
-        actnorm = ActNorm(num_features=16)
+        actnorm = ActNorm(num_channels=16)
         # forward and reverse flow
         y, _ = actnorm(x)
         x_, _ = actnorm(y, reverse=True)
@@ -34,6 +34,16 @@ class TestModule(unittest.TestCase):
         # forward and reverse flow
         y = conv2d(x)
         # assertion
+        self.assertTupleEqual((2, 5, 4, 4), tuple(y.shape))
+
+    def test_conv2d_zero(self):
+        # initial variables
+        x = torch.Tensor(np.random.rand(2, 16, 4, 4))
+        conv2d = Conv2dZero(in_channels=16, out_channels=5)
+        # forward and reverse flow
+        y = conv2d(x)
+        # assertion
+        self.assertTupleEqual((5, 16), tuple(conv2d.weight.shape[:2]))
         self.assertTupleEqual((2, 5, 4, 4), tuple(y.shape))
 
 

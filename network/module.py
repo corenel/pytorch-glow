@@ -5,12 +5,12 @@ import numpy as np
 
 
 class ActNorm(nn.Module):
-    def __init__(self, num_features, scale=1., logscale_factor=3., batch_variance=False):
+    def __init__(self, num_channels, scale=1., logscale_factor=3., batch_variance=False):
         """
         Activation normalization layer
 
-        :param num_features: number of channels
-        :type num_features: int
+        :param num_channels: number of channels
+        :type num_channels: int
         :param scale: scale
         :type scale: float
         :param logscale_factor: factor for logscale
@@ -19,7 +19,7 @@ class ActNorm(nn.Module):
         :type batch_variance: bool
         """
         super().__init__()
-        self.num_features = num_features
+        self.num_features = num_channels
         self.scale = scale
         self.logscale_factor = logscale_factor
         self.batch_variance = batch_variance
@@ -181,10 +181,23 @@ class LinearZero(nn.Linear):
 
 class Conv2d(nn.Conv2d):
     @staticmethod
-    def _get_padding(padding_type, kernel_size, stride):
-        # mentioned in https://github.com/pytorch/pytorch/issues/3867#issuecomment-361775080
-        # behaves as 'SAME' padding in TensorFlow
-        # independent on input size when stride is 1
+    def get_padding(padding_type, kernel_size, stride):
+        """
+        Get padding size.
+
+        mentioned in https://github.com/pytorch/pytorch/issues/3867#issuecomment-361775080
+        behaves as 'SAME' padding in TensorFlow
+        independent on input size when stride is 1
+
+        :param padding_type: type of padding in ['SAME', 'VALID']
+        :type padding_type: str
+        :param kernel_size: kernel size
+        :type kernel_size: tuple(int) or int
+        :param stride: stride
+        :type stride: int
+        :return: padding size
+        :rtype: tuple(int)
+        """
         assert padding_type in ['SAME', 'VALID'], "Unsupported padding type: {}".format(padding_type)
         if padding_type == 'SAME':
             assert stride == 1, "'SAME' padding only supports stride=1"
@@ -195,7 +208,17 @@ class Conv2d(nn.Conv2d):
                  kernel_size=(3, 3), stride=1, padding_type='SAME',
                  do_weightnorm=False, do_actnorm=True,
                  dilation=1, groups=1):
-        padding = self._get_padding(padding_type, kernel_size, stride)
+        """
+        Wrapper of nn.Conv2d with weight normalization and activation normalization
+
+        :param padding_type: type of padding in ['SAME', 'VALID']
+        :type padding_type: str
+        :param do_weightnorm: whether to do weight normalization after convolution
+        :type do_weightnorm: bool
+        :param do_actnorm: whether to do activation normalization after convolution
+        :type do_actnorm: bool
+        """
+        padding = self.get_padding(padding_type, kernel_size, stride)
         super().__init__(in_channels, out_channels,
                          kernel_size, stride, padding,
                          dilation, groups,
@@ -210,6 +233,14 @@ class Conv2d(nn.Conv2d):
             self.bias.data.zero_()
 
     def forward(self, x):
+        """
+        Forward wrapped Conv2d layer
+
+        :param x: input
+        :type x: torch.Tensor
+        :return: output
+        :rtype: torch.Tensor
+        """
         x = super().forward(x)
         if self.do_weight_norm:
             # normalize N, H and W dims
@@ -218,4 +249,41 @@ class Conv2d(nn.Conv2d):
             F.normalize(x, p=2, dim=3)
         if self.do_actnorm:
             x, _ = self.actnorm(x)
+        return x
+
+
+class Conv2dZero(nn.Conv2d):
+
+    def __init__(self, in_channels, out_channels,
+                 kernel_size=(3, 3), stride=1, padding_type='SAME',
+                 logscale_factor=3,
+                 dilation=1, groups=1, bias=True):
+        """
+        Wrapper of nn.Conv2d with zero initialization and logs
+
+        :param padding_type: type of padding in ['SAME', 'VALID']
+        :type padding_type: str
+        :param logscale_factor: factor for logscale
+        :type logscale_factor: float
+        """
+        padding = Conv2d.get_padding(padding_type, kernel_size, stride)
+        super().__init__(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias)
+
+        self.logscale_factor = logscale_factor
+        # initialize variables with zero
+        self.bias.data.zero_()
+        self.weight.data.zero_()
+        self.register_parameter("logs", nn.Parameter(torch.zeros(out_channels, 1, 1)))
+
+    def forward(self, x):
+        """
+        Forward wrapped Conv2d layer
+
+        :param x: input
+        :type x: torch.Tensor
+        :return: output
+        :rtype: torch.Tensor
+        """
+        x = super().forward(x)
+        x *= torch.exp(self.logs * self.logscale_factor)
         return x
