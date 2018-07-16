@@ -88,7 +88,7 @@ class ActNorm(nn.Module):
             x = x.permute([0, 2, 3, 1]).contiguous().view(-1, self.num_features)
             x_mean = -torch.mean(x, 0, keepdim=False)
             if self.batch_variance:
-                raise NotImplementedError
+                raise NotImplementedError()
             else:
                 x_var = torch.mean(x ** 2, 0, keepdim=False)
             logs = torch.log(self.scale / (torch.sqrt(x_var) + 1e-6)) / self.logscale_factor
@@ -287,3 +287,54 @@ class Conv2dZero(nn.Conv2d):
         x = super().forward(x)
         x *= torch.exp(self.logs * self.logscale_factor)
         return x
+
+
+class Invertible1x1Conv(nn.Module):
+
+    def __init__(self, num_channels, lu_decomposed=False):
+        """
+        Invertible 1x1 convolution layer
+
+        :param num_channels: number of channels
+        :type num_channels: int
+        :param lu_decomposed: whether to use LU decomposition
+        :type lu_decomposed: bool
+        """
+        super().__init__()
+        self.num_channels = num_channels
+        self.lu_decomposed = lu_decomposed
+        if self.lu_decomposed:
+            raise NotImplementedError()
+        else:
+            self.w_shape = [num_channels, num_channels]
+            self.logdet_factor = None
+            # Sample a random orthogonal matrix
+            w_init = np.linalg.qr(np.random.randn(*self.w_shape))[0].astype('float32')
+            self.register_parameter('weight', nn.Parameter(torch.Tensor(w_init)))
+
+    def forward(self, x, logdet=None, reverse=False):
+        """
+
+        :param x: input
+        :type x: torch.Tensor
+        :param logdet:
+        :type logdet:
+        :param reverse: whether to reverse bias
+        :type reverse: bool
+        :return: output and logdet
+        :rtype: tuple(torch.Tensor, torch.Tensor)
+        """
+        self.logdet_factor = x.shape[1] * x.shape[2]  # H * W
+        dlogdet = torch.log(torch.abs(torch.det(self.weight))) * self.logdet_factor
+        if not reverse:
+            weight = self.weight.view(*self.w_shape, 1, 1)
+            z = F.conv2d(x, weight)
+            if logdet is not None:
+                logdet += dlogdet
+            return z, dlogdet
+        else:
+            weight = self.weight.inverse().view(*self.w_shape, 1, 1)
+            z = F.conv2d(x, weight)
+            if logdet is not None:
+                logdet -= dlogdet
+            return z, dlogdet

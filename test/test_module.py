@@ -2,7 +2,8 @@ import numpy as np
 import torch
 import unittest
 
-from network.module import (ActNorm, LinearZero, Conv2d, Conv2dZero)
+from network.module import (ActNorm, LinearZero, Conv2d, Conv2dZero,
+                            Invertible1x1Conv)
 
 
 class TestModule(unittest.TestCase):
@@ -45,6 +46,18 @@ class TestModule(unittest.TestCase):
         # assertion
         self.assertTupleEqual((5, 16), tuple(conv2d.weight.shape[:2]))
         self.assertTupleEqual((2, 5, 4, 4), tuple(y.shape))
+
+    def test_invertible_1x1_conv(self):
+        # initial variables
+        x = torch.Tensor(np.random.rand(2, 16, 4, 4))
+        invertible_1x1_conv = Invertible1x1Conv(num_channels=16)
+        # forward and reverse flow
+        y, _ = invertible_1x1_conv(x)
+        x_, _ = invertible_1x1_conv(y, reverse=True)
+        # assertion
+        eps = 1e-6
+        self.assertTupleEqual((2, 16, 4, 4), tuple(y.shape))
+        self.assertTrue(0 <= float(torch.max(torch.abs(x_ - x))) <= eps)
 
 
 if __name__ == '__main__':
