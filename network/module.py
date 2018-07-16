@@ -338,3 +338,40 @@ class Invertible1x1Conv(nn.Module):
             if logdet is not None:
                 logdet -= dlogdet
             return z, dlogdet
+
+
+class Split2d(nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+    @staticmethod
+    def unsequeeze2d(x, factor=2):
+        assert factor >= 1
+        if factor == 1:
+            return x
+        nc = x.shape[1]
+        nh = x.shape[2]
+        nw = x.shape[3]
+        assert nc >= 4 and nc % 4 == 0
+        x = x.view(-1, int(nc / factor ** 2), factor, factor, nh, nw)
+        x = x.permute(0, 1, 4, 2, 5, 3).contiguous()
+        x = x.view(-1, int(nc / factor ** 2), int(nh * factor), int(nw * factor))
+        return x
+
+    @staticmethod
+    def sequeeze2d(x, factor=2):
+        assert factor >= 1
+        if factor == 1:
+            return x
+        nc = x.shape[1]
+        nh = x.shape[2]
+        nw = x.shape[3]
+        assert nh % factor == 0 and nw % factor == 0
+        x = x.view(-1, nc, nh // factor, factor, nw // factor, factor)
+        x = x.permute([0, 1, 3, 5, 2, 4]).contiguous()
+        x = x.view(-1, nc * factor * factor, nh // factor, nw // factor)
+        return x
+
+    def forward(self, x):
+        pass
