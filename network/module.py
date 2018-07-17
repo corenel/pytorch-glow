@@ -55,7 +55,7 @@ class ActNorm(nn.Module):
 
         :param x: input
         :type x: torch.Tensor
-        :param logdet:
+        :param logdet: log determinant
         :type logdet:
         :param reverse: whether to reverse bias
         :type reverse: bool
@@ -79,7 +79,7 @@ class ActNorm(nn.Module):
             dlogdet = torch.sum(logs) * logdet_factor
             if reverse:
                 dlogdet *= -1
-            logdet += dlogdet
+            logdet = dlogdet + logdet
 
         return x, logdet
 
@@ -125,7 +125,7 @@ class ActNorm(nn.Module):
 
         :param x: input
         :type x: torch.Tensor
-        :param logdet:
+        :param logdet: log determinant
         :type logdet:
         :param reverse: whether to reverse bias
         :type reverse: bool
@@ -319,19 +319,19 @@ def f(in_channels, hidden_channels, out_channels):
 
 class Invertible1x1Conv(nn.Module):
 
-    def __init__(self, num_channels, lu_decomposed=False):
+    def __init__(self, num_channels, lu_decomposition=False):
         """
         Invertible 1x1 convolution layer
 
         :param num_channels: number of channels
         :type num_channels: int
-        :param lu_decomposed: whether to use LU decomposition
-        :type lu_decomposed: bool
+        :param lu_decomposition: whether to use LU decomposition
+        :type lu_decomposition: bool
         """
         super().__init__()
         self.num_channels = num_channels
-        self.lu_decomposed = lu_decomposed
-        if self.lu_decomposed:
+        self.lu_decomposition = lu_decomposition
+        if self.lu_decomposition:
             raise NotImplementedError()
         else:
             w_shape = [num_channels, num_channels]
@@ -344,7 +344,7 @@ class Invertible1x1Conv(nn.Module):
 
         :param x: input
         :type x: torch.Tensor
-        :param logdet:
+        :param logdet: log determinant
         :type logdet:
         :param reverse: whether to reverse bias
         :type reverse: bool
@@ -357,7 +357,7 @@ class Invertible1x1Conv(nn.Module):
             weight = self.weight.view(*self.weight.shape, 1, 1)
             z = F.conv2d(x, weight)
             if logdet is not None:
-                logdet += dlogdet
+                logdet = dlogdet + logdet
             return z, logdet
         else:
             weight = self.weight.inverse().view(*self.weight.shape, 1, 1)
@@ -400,17 +400,23 @@ class GaussianDiag:
     Generator of gaussian diagonal matrix
     """
 
+    log_2pi = float(np.log(2 * np.pi))
+
     @staticmethod
-    def eps(mean):
+    def eps(shape_tensor, eps_std=None):
         """
         Returns a tensor filled with random numbers from a standard normal distribution
 
-        :param mean: input tensor
-        :type mean: torch.Tensor
+        :param shape_tensor: input tensor
+        :type shape_tensor: torch.Tensor
+        :param eps_std: standard deviation of eps
+        :type eps_std: float
         :return: a tensor filled with random numbers from a standard normal distribution
         :rtype: torch.Tensor
         """
-        return torch.randn_like(mean)
+        eps_std = eps_std or 1.
+        return torch.normal(mean=torch.zeros_like(shape_tensor),
+                            std=torch.ones_like(shape_tensor) * eps_std)
 
     @staticmethod
     def flatten_sum(tensor):
@@ -439,7 +445,7 @@ class GaussianDiag:
         :return: likehood
         :rtype: torch.Tensor
         """
-        return -0.5 * (np.log(2 * np.pi) + 2. * logs + (x - mean) ** 2 / torch.exp(2. * logs))
+        return -0.5 * (GaussianDiag.log_2pi + 2. * logs + (x - mean) ** 2 / torch.exp(2. * logs))
 
     @staticmethod
     def logp(mean, logs, x):
@@ -459,17 +465,19 @@ class GaussianDiag:
         return GaussianDiag.flatten_sum(s)
 
     @staticmethod
-    def sample(mean, logs):
+    def sample(mean, logs, eps_std=None):
         """
         Generate smaple
 
         :type mean: torch.Tensor
         :param logs:
         :type logs: torch.Tensor
+        :param eps_std: standard deviation of eps
+        :type eps_std: float
         :return: sample
         :rtype: torch.Tensor
         """
-        eps = GaussianDiag.eps(mean)
+        eps = GaussianDiag.eps(mean, eps_std)
         return mean + torch.exp(logs) * eps
 
 
@@ -499,30 +507,32 @@ class Split2d(nn.Module):
         logs = h[:, 1::2, :, :]
         return mean, logs
 
-    def forward(self, x, logdet=None, reverse=False):
+    def forward(self, x, logdet=None, reverse=False, eps_std=None):
         """
         Forward Split2d layer
 
         :param x: input tensor
         :type x: torch.Tensor
-        :param logdet:
+        :param logdet: log determinant
         :type logdet:
         :param reverse: whether to reverse flow
         :type reverse: bool
+        :param eps_std: standard deviation of eps
+        :type eps_std: float
         :return: output and logdet
         :rtype: tuple(torch.Tensor, torch.Tensor)
         """
         if not reverse:
-            nc = input.shape[1]
-            z1 = input[:, :nc // 2, :, :]
-            z2 = input[:, nc // 2:, :, :]
+            nc = x.shape[1]
+            z1 = x[:, :nc // 2, :, :]
+            z2 = x[:, nc // 2:, :, :]
             mean, logs = self.prior(z1)
-            logdet += GaussianDiag.logp(mean, logs, z2)
+            logdet = GaussianDiag.logp(mean, logs, z2) + logdet
             return z1, logdet
         else:
             z1 = x
             mean, logs = self.prior(z1)
-            z2 = GaussianDiag.sample(mean, logs)
+            z2 = GaussianDiag.sample(mean, logs, eps_std)
             z = torch.cat((z1, z2), dim=1)
             return z, logdet
 
@@ -592,7 +602,7 @@ class Squeeze2d(nn.Module):
 
         :param x: input tensor
         :type x: torch.Tensor
-        :param logdet:
+        :param logdet: log determinant
         :type logdet:
         :param reverse: whether to reverse flow
         :type reverse: bool

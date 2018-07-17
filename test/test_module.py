@@ -82,6 +82,16 @@ class TestModule(unittest.TestCase):
         # assertion
         self.assertTrue(ops.tensor_equal(x, x_))
 
+    def test_split2d(self):
+        # initial variables
+        x = torch.Tensor(np.random.rand(2, 16, 4, 4))
+        split2d = Split2d(num_channels=16)
+        # forward and reverse flow
+        y, _ = split2d(x, 0)
+        x_, _ = split2d(y, 0, reverse=True)
+        # assertion
+        self.assertTrue(ops.tensor_equal(x, x_))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -96,7 +96,7 @@ learn_top = False
 # use y conditioning
 y_cond = False
 # LU decomposed
-lu_decomposed = False
+lu_decomposition = False
 # random seed
 seed = 0
 # type of flow ['reverse', 'shuffle' , 'invconv']
