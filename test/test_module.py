@@ -58,7 +58,7 @@ class TestModule(unittest.TestCase):
         self.assertTupleEqual((2, 16, 4, 4), tuple(y.shape))
         self.assertTrue(ops.tensor_equal(x, x_))
 
-    def test_permutation(self):
+    def test_permutation2d(self):
         # initial variables
         x = torch.Tensor(np.random.rand(2, 16, 4, 4))
         reverse = Permutation2d(num_channels=16)

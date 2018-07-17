@@ -1,7 +1,7 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
 
 from misc import ops
 
@@ -203,6 +203,8 @@ class Conv2d(nn.Conv2d):
         :rtype: tuple(int)
         """
         assert padding_type in ['SAME', 'VALID'], "Unsupported padding type: {}".format(padding_type)
+        if isinstance(kernel_size, int):
+            kernel_size = [kernel_size, kernel_size]
         if padding_type == 'SAME':
             assert stride == 1, "'SAME' padding only supports stride=1"
             return tuple((k - 1) // 2 for k in kernel_size)
@@ -291,6 +293,28 @@ class Conv2dZeros(nn.Conv2d):
         x = super().forward(x)
         x *= torch.exp(self.logs * self.logscale_factor)
         return x
+
+
+def f(in_channels, hidden_channels, out_channels):
+    """
+    Convolution block
+
+    :param in_channels: number of input channels
+    :type in_channels: int
+    :param hidden_channels: number of hidden channels
+    :type hidden_channels: int
+    :param out_channels: number of output channels
+    :type out_channels: int
+    :return: desired convolution block
+    :rtype: nn.Module
+    """
+    return nn.Sequential(
+        Conv2d(in_channels, hidden_channels),
+        nn.ReLU(inplace=True),
+        Conv2d(hidden_channels, hidden_channels, kernel_size=1),
+        nn.ReLU(inplace=True),
+        Conv2dZeros(hidden_channels, out_channels)
+    )
 
 
 class Invertible1x1Conv(nn.Module):
