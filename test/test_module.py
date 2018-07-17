@@ -55,7 +55,7 @@ class TestModule(unittest.TestCase):
         y, _ = invertible_1x1_conv(x)
         x_, _ = invertible_1x1_conv(y, reverse=True)
         # assertion
-        self.assertTupleEqual((2, 16, 4, 4), tuple(y.shape))
+        self.assertEqual(x.shape, y.shape)
         self.assertTrue(ops.tensor_equal(x, x_))
 
     def test_permutation2d(self):
@@ -87,10 +87,11 @@ class TestModule(unittest.TestCase):
         x = torch.Tensor(np.random.rand(2, 16, 4, 4))
         split2d = Split2d(num_channels=16)
         # forward and reverse flow
-        y, _ = split2d(x, 0)
+        y, _ = split2d(x, 0, reverse=False)
         x_, _ = split2d(y, 0, reverse=True)
         # assertion
-        self.assertTrue(ops.tensor_equal(x, x_))
+        self.assertTrue(ops.tensor_equal(x[:, :x.shape[1] // 2, :, :],
+                                         x_[:, :x_.shape[1] // 2, :, :]))
 
 
 if __name__ == '__main__':

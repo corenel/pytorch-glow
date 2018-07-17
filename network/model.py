@@ -290,7 +290,7 @@ class FlowModel(nn.Module):
         :return: decoded tensor
         :rtype: torch.Tensor
         """
-        for layer in self.layers:
+        for layer in reversed(self.layers):
             if isinstance(layer, module.Split2d):
                 z, logdet = layer(z, logdet=0., reverse=True, eps_std=eps_std)
             else:

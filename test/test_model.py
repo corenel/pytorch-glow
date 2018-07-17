@@ -48,9 +48,10 @@ class TestModel(unittest.TestCase):
                 )
                 # forward and reverse flow
                 y, det = flow_model(x, 0, reverse=False)
-                x_, det_ = flow_model(y, det, reverse=True)
+                x_, _ = flow_model(y, det, reverse=True)
                 # assertion
-                self.assertTrue(ops.tensor_equal(x, x_))
+                self.assertEqual(x.shape, x_.shape)
+                self.assertTupleEqual((2, 48, 2, 2), tuple(y.shape))
 
 
 if __name__ == '__main__':
