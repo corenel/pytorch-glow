@@ -4,6 +4,7 @@ import unittest
 
 from network.module import (ActNorm, LinearZeros, Conv2d, Conv2dZeros,
                             Invertible1x1Conv, Split2d, Squeeze2d)
+from misc import ops
 
 
 class TestModule(unittest.TestCase):
@@ -16,8 +17,7 @@ class TestModule(unittest.TestCase):
         y, _ = actnorm(x)
         x_, _ = actnorm(y, reverse=True)
         # assertion
-        eps = 1e-6
-        self.assertTrue(0 <= float(torch.max(torch.abs(x_ - x))) <= eps)
+        self.assertTrue(ops.tensor_equal(x, x_))
 
     def test_linear_zeros(self):
         # initial variables
@@ -55,9 +55,8 @@ class TestModule(unittest.TestCase):
         y, _ = invertible_1x1_conv(x)
         x_, _ = invertible_1x1_conv(y, reverse=True)
         # assertion
-        eps = 1e-6
         self.assertTupleEqual((2, 16, 4, 4), tuple(y.shape))
-        self.assertTrue(0 <= float(torch.max(torch.abs(x_ - x))) <= eps)
+        self.assertTrue(ops.tensor_equal(x, x_))
 
     def test_squeeze2d(self):
         # initial variables
@@ -67,8 +66,7 @@ class TestModule(unittest.TestCase):
         y, _ = squeeze(x)
         x_, _ = squeeze(y, reverse=True)
         # assertion
-        eps = 1e-6
-        self.assertTrue(0 <= float(torch.max(torch.abs(x_ - x))) <= eps)
+        self.assertTrue(ops.tensor_equal(x, x_))
 
 
 if __name__ == '__main__':

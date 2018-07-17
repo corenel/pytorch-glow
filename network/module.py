@@ -344,54 +344,160 @@ class Invertible1x1Conv(nn.Module):
 
 
 class GaussianDiag:
+    """
+    Generator of gaussian diagonal matrix
+    """
+
     @staticmethod
     def eps(mean):
+        """
+        Returns a tensor filled with random numbers from a standard normal distribution
+
+        :param mean: input tensor
+        :type mean: torch.Tensor
+        :return: a tensor filled with random numbers from a standard normal distribution
+        :rtype: torch.Tensor
+        """
         return torch.randn_like(mean)
 
     @staticmethod
-    def flatten_sum(s):
-        assert len(s.shape) == 4
-        return ops.reduce_sum(s, dim=[1, 2, 3])
+    def flatten_sum(tensor):
+        """
+        Summarize tensor except first dimension
+
+        :param tensor: input tensor
+        :type tensor: torch.Tensor
+        :return: summarized tensor
+        :rtype: torch.Tensor
+        """
+        assert len(tensor.shape) == 4
+        return ops.reduce_sum(tensor, dim=[1, 2, 3])
 
     @staticmethod
     def logps(mean, logs, x):
+        """
+        Likehood
+
+        :param mean:
+        :type mean: torch.Tensor
+        :param logs:
+        :type logs: torch.Tensor
+        :param x: input tensor
+        :type x: torch.Tensor
+        :return: likehood
+        :rtype: torch.Tensor
+        """
         return -0.5 * (np.log(2 * np.pi) + 2. * logs + (x - mean) ** 2 / torch.exp(2. * logs))
 
     @staticmethod
     def logp(mean, logs, x):
+        """
+        Summarized likehood
+
+        :param mean:
+        :type mean: torch.Tensor
+        :param logs:
+        :type logs: torch.Tensor
+        :param x: input tensor
+        :type x: torch.Tensor
+        :return:
+        :rtype: torch.Tensor
+        """
         s = GaussianDiag.logps(mean, logs, x)
         return GaussianDiag.flatten_sum(s)
 
     @staticmethod
     def sample(mean, logs):
+        """
+        Generate smaple
+
+        :type mean: torch.Tensor
+        :param logs:
+        :type logs: torch.Tensor
+        :return: sample
+        :rtype: torch.Tensor
+        """
         eps = GaussianDiag.eps(mean)
         return mean + torch.exp(logs) * eps
 
 
 class Split2d(nn.Module):
     def __init__(self, num_channels):
+        """
+        Split2d layer
+
+        :param num_channels: number of channels
+        :type num_channels: int
+        """
         super().__init__()
         self.num_channels = num_channels
         self.conv2d_zeros = Conv2dZeros(num_channels // 2, num_channels)
 
     def prior(self, z):
+        """
+        Pre-process
+
+        :param z: input tensor
+        :type z: torch.Tensor
+        :return: output tensor
+        :rtype: torch.Tensor
+        """
         h = self.conv2d_zeros(z)
         mean = h[:, 0::2, :, :]
         logs = h[:, 1::2, :, :]
         return mean, logs
 
     def forward(self, x, logdet=None, reverse=False):
-        pass
+        """
+        Forward Split2d layer
+
+        :param x: input tensor
+        :type x: torch.Tensor
+        :param logdet:
+        :type logdet:
+        :param reverse: whether to reverse flow
+        :type reverse: bool
+        :return: output and logdet
+        :rtype: tuple(torch.Tensor, torch.Tensor)
+        """
+        if not reverse:
+            nc = input.shape[1]
+            z1 = input[:, :nc // 2, :, :]
+            z2 = input[:, nc // 2:, :, :]
+            mean, logs = self.prior(z1)
+            logdet += GaussianDiag.logp(mean, logs, z2)
+            return z1, logdet
+        else:
+            z1 = x
+            mean, logs = self.prior(z1)
+            z2 = GaussianDiag.sample(mean, logs)
+            z = torch.cat((z1, z2), dim=1)
+            return z, logdet
 
 
 class Squeeze2d(nn.Module):
-
     def __init__(self, factor=2):
+        """
+        Squeeze2d layer
+
+        :param factor: squeeze factor
+        :type factor: int
+        """
         super().__init__()
         self.factor = factor
 
     @staticmethod
     def unsqueeze(x, factor=2):
+        """
+        Unsqueeze tensor
+
+        :param x: input tensor
+        :type x: torch.Tensor
+        :param factor: unsqueeze factor
+        :type factor: int
+        :return: unsqueezed tensor
+        :rtype: torch.Tensor
+        """
         assert factor >= 1
         if factor == 1:
             return x
@@ -406,6 +512,16 @@ class Squeeze2d(nn.Module):
 
     @staticmethod
     def squeeze(x, factor=2):
+        """
+        Squeeze tensor
+
+        :param x: input tensor
+        :type x: torch.Tensor
+        :param factor: squeeze factor
+        :type factor: int
+        :return: squeezed tensor
+        :rtype: torch.Tensor
+        """
         assert factor >= 1
         if factor == 1:
             return x
@@ -419,6 +535,18 @@ class Squeeze2d(nn.Module):
         return x
 
     def forward(self, x, logdet=None, reverse=False):
+        """
+        Forward Squeeze2d layer
+
+        :param x: input tensor
+        :type x: torch.Tensor
+        :param logdet:
+        :type logdet:
+        :param reverse: whether to reverse flow
+        :type reverse: bool
+        :return: output and logdet
+        :rtype: tuple(torch.Tensor, torch.Tensor)
+        """
         if not reverse:
             output = self.squeeze(x, self.factor)
         else:
