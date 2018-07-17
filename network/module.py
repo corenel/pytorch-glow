@@ -358,13 +358,13 @@ class Invertible1x1Conv(nn.Module):
             z = F.conv2d(x, weight)
             if logdet is not None:
                 logdet += dlogdet
-            return z, dlogdet
+            return z, logdet
         else:
             weight = self.weight.inverse().view(*self.weight.shape, 1, 1)
             z = F.conv2d(x, weight)
             if logdet is not None:
                 logdet -= dlogdet
-            return z, dlogdet
+            return z, logdet
 
 
 class Permutation2d(nn.Module):

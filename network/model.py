@@ -29,16 +29,16 @@ class FlowStep(nn.Module):
         self.actnorm = module.ActNorm(num_channels=in_channels, scale=actnorm_scale)
 
         # flow permutation layer
-        if self.permutation == 'invconv':
+        if permutation == 'invconv':
             self.invconv = module.Invertible1x1Conv(num_channels=in_channels,
                                                     lu_decomposed=lu_decomposed)
-        elif self.permutation == 'reverse':
+        elif permutation == 'reverse':
             self.reverse = module.Permutation2d(num_channels=in_channels, shuffle=False)
         else:
             self.shuffle = module.Permutation2d(num_channels=in_channels, shuffle=True)
 
         # flow coupling layer
-        if self.coupling == 'additive':
+        if coupling == 'additive':
             self.f = module.f(in_channels // 2, hidden_channels, in_channels // 2)
         else:
             self.f = module.f(in_channels // 2, hidden_channels, in_channels)
@@ -46,7 +46,6 @@ class FlowStep(nn.Module):
     def normal_flow(self, x, logdet=None):
         # activation normalization layer
         z, logdet = self.actnorm(x, logdet=logdet, reverse=False)
-        print(z[0, 0, 0, 0])
 
         # flow permutation layer
         if self.permutation == 'invconv':
@@ -55,7 +54,6 @@ class FlowStep(nn.Module):
             z = self.reverse(z, reverse=False)
         else:
             z = self.shuffle(z, reverse=False)
-        print(z[0, 0, 0, 0])
 
         # flow coupling layer
         nc = z.shape[1]
@@ -71,7 +69,6 @@ class FlowStep(nn.Module):
             z2 *= scale
             logdet = ops.reduce_sum(torch.log(scale), dim=[1, 2, 3]) + logdet
         z = torch.cat((z1, z2), dim=1)
-        print(z[0, 0, 0, 0])
 
         return z, logdet
 
@@ -90,7 +87,6 @@ class FlowStep(nn.Module):
             z2 -= shift
             logdet = -ops.reduce_sum(torch.log(scale), dim=[1, 2, 3]) + logdet
         z = torch.cat((z1, z2), dim=1)
-        print(z[0, 0, 0, 0])
 
         # flow permutation layer
         if self.permutation == 'invconv':
@@ -99,15 +95,13 @@ class FlowStep(nn.Module):
             z = self.reverse(z, reverse=True)
         else:
             z = self.shuffle(z, reverse=True)
-        print(z[0, 0, 0, 0])
 
         # activation normalization layer
         z, logdet = self.actnorm(z, logdet=logdet, reverse=True)
-        print(z[0, 0, 0, 0])
 
         return z, logdet
 
-    def forward(self, x, logdet=None, reverse=True):
+    def forward(self, x, logdet=None, reverse=False):
         assert x.shape[1] % 2 == 0
         if not reverse:
             return self.normal_flow(x, logdet)

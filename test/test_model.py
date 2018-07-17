@@ -24,11 +24,10 @@ class TestModel(unittest.TestCase):
                     lu_decomposed=False
                 )
                 # forward and reverse flow
-                y, det = flow_step(x, 0)
+                y, det = flow_step(x, 0, reverse=False)
                 x_, det_ = flow_step(y, det, reverse=True)
                 # assertion
-                print('-------------')
-                # self.assertTrue(ops.tensor_equal(x, x_))
+                self.assertTrue(ops.tensor_equal(x, x_))
 
 
 if __name__ == '__main__':
