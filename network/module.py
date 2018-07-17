@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
+from misc import ops
+
 
 class ActNorm(nn.Module):
     def __init__(self, num_channels, scale=1., logscale_factor=3., batch_variance=False):
@@ -19,15 +21,15 @@ class ActNorm(nn.Module):
         :type batch_variance: bool
         """
         super().__init__()
-        self.num_features = num_channels
+        self.num_channels = num_channels
         self.scale = scale
         self.logscale_factor = logscale_factor
         self.batch_variance = batch_variance
-        self.logdet_factor = None
 
-        self.initialized = False
-        self.register_parameter('bias', nn.Parameter(torch.zeros(self.num_features)))
-        self.register_parameter('logs', nn.Parameter(torch.zeros(self.num_features)))
+        self.bias_inited = False
+        self.logs_inited = False
+        self.register_parameter('bias', nn.Parameter(torch.zeros(1, self.num_channels, 1, 1)))
+        self.register_parameter('logs', nn.Parameter(torch.zeros(1, self.num_channels, 1, 1)))
 
     def actnorm_center(self, x, reverse=False):
         """
@@ -40,12 +42,12 @@ class ActNorm(nn.Module):
         :return: centered input
         :rtype: torch.Tensor
         """
+        if not self.bias_inited:
+            self.initialize_bias(x)
         if not reverse:
-            x += self.bias
+            return x + self.bias
         else:
-            x -= self.bias
-
-        return x
+            return x - self.bias
 
     def actnorm_scale(self, x, logdet, reverse=False):
         """
@@ -60,6 +62,11 @@ class ActNorm(nn.Module):
         :return: centered input and logdet
         :rtype: tuple(torch.Tensor, torch.Tensor)
         """
+
+        if not self.logs_inited:
+            self.initialize_logs(x)
+
+        # TODO condition for non 4-dims input
         logs = self.logs * self.logscale_factor
 
         if not reverse:
@@ -68,35 +75,49 @@ class ActNorm(nn.Module):
             x = x * torch.exp(-logs)
 
         if logdet is not None:
-            dlogdet = torch.sum(logs) * self.logdet_factor
+            logdet_factor = int(x.shape[2]) * int(x.shape[3])  # H * W
+            dlogdet = torch.sum(logs) * logdet_factor
             if reverse:
                 dlogdet *= -1
             logdet += dlogdet
 
         return x, logdet
 
-    def initialize_parameters(self, x):
+    def initialize_bias(self, x):
         """
-        Initialize bias and logs
+        Initialize bias
 
         :param x: input
         :type x: torch.Tensor
         """
+        if not self.training:
+            return
         with torch.no_grad():
             # Compute initial value
-            # (N, C, H, W) -> (N, H, W, C) -> (N * H * W, C)
-            x = x.permute([0, 2, 3, 1]).contiguous().view(-1, self.num_features)
-            x_mean = -torch.mean(x, 0, keepdim=False)
+            x_mean = -1. * ops.reduce_mean(x, dim=[0, 2, 3], keepdim=True)
+            # Copy to parameters
+            self.bias.data.copy_(x_mean.data)
+            self.bias_inited = True
+
+    def initialize_logs(self, x):
+        """
+        Initialize logs
+
+        :param x: input
+        :type x: torch.Tensor
+        """
+        if not self.training:
+            return
+        with torch.no_grad():
             if self.batch_variance:
-                raise NotImplementedError()
+                x_var = ops.reduce_mean(x ** 2, keepdim=True)
             else:
-                x_var = torch.mean(x ** 2, 0, keepdim=False)
+                x_var = ops.reduce_mean(x ** 2, dim=[0, 2, 3], keepdim=True)
             logs = torch.log(self.scale / (torch.sqrt(x_var) + 1e-6)) / self.logscale_factor
 
             # Copy to parameters
-            self.bias.data.copy_(x_mean.data)
             self.logs.data.copy_(logs.data)
-            self.initialized = True
+            self.logs_inited = True
 
     def forward(self, x, logdet=None, reverse=False):
         """
@@ -112,22 +133,8 @@ class ActNorm(nn.Module):
         :rtype: tuple(torch.Tensor, torch.Tensor)
         """
         assert len(x.shape) == 4
-        assert x.shape[1] == self.num_features, \
-            'Input shape should be NxCxHxW, however channels are {} instead of {}'.format(x.shape[1], self.num_features)
-
-        if not self.initialized:
-            self.initialize_parameters(x)
-
-        # TODO condition for non 4-dims input
-        self.logdet_factor = int(x.shape[2]) * int(x.shape[3])
-
-        # Transpose feature to last dim
-        # (N, C, H, W) -> (N, H, W, C)
-        x = x.permute([0, 2, 3, 1]).contiguous()
-        # record current shape
-        x_shape = x.shape
-        # (N, H, W, C) -> (N * H * W, C)
-        x = x.view(-1, self.num_features)
+        assert x.shape[1] == self.num_channels, \
+            'Input shape should be NxCxHxW, however channels are {} instead of {}'.format(x.shape[1], self.num_channels)
 
         if not reverse:
             # center and scale
@@ -137,9 +144,6 @@ class ActNorm(nn.Module):
             # scale and center
             x, logdet = self.actnorm_scale(x, logdet, reverse)
             x = self.actnorm_center(x, reverse)
-        # reshape and transpose back
-        # (N * H * W, C) -> (N, H, W, C) -> (N, C, H, W)
-        x = x.view(*x_shape).permute([0, 3, 1, 2])
         return x, logdet
 
 
@@ -306,10 +310,9 @@ class Invertible1x1Conv(nn.Module):
         if self.lu_decomposed:
             raise NotImplementedError()
         else:
-            self.w_shape = [num_channels, num_channels]
-            self.logdet_factor = None
+            w_shape = [num_channels, num_channels]
             # Sample a random orthogonal matrix
-            w_init = np.linalg.qr(np.random.randn(*self.w_shape))[0].astype('float32')
+            w_init = np.linalg.qr(np.random.randn(*w_shape))[0].astype('float32')
             self.register_parameter('weight', nn.Parameter(torch.Tensor(w_init)))
 
     def forward(self, x, logdet=None, reverse=False):
@@ -324,16 +327,16 @@ class Invertible1x1Conv(nn.Module):
         :return: output and logdet
         :rtype: tuple(torch.Tensor, torch.Tensor)
         """
-        self.logdet_factor = x.shape[1] * x.shape[2]  # H * W
-        dlogdet = torch.log(torch.abs(torch.det(self.weight))) * self.logdet_factor
+        logdet_factor = x.shape[1] * x.shape[2]  # H * W
+        dlogdet = torch.log(torch.abs(torch.det(self.weight))) * logdet_factor
         if not reverse:
-            weight = self.weight.view(*self.w_shape, 1, 1)
+            weight = self.weight.view(*self.weight.shape, 1, 1)
             z = F.conv2d(x, weight)
             if logdet is not None:
                 logdet += dlogdet
             return z, dlogdet
         else:
-            weight = self.weight.inverse().view(*self.w_shape, 1, 1)
+            weight = self.weight.inverse().view(*self.weight.shape, 1, 1)
             z = F.conv2d(x, weight)
             if logdet is not None:
                 logdet -= dlogdet
@@ -347,11 +350,8 @@ class GaussianDiag:
 
     @staticmethod
     def flatten_sum(s):
-        if len(s.shape) == 4:
-            flatten = s.view(s.shape[0], -1)
-            return torch.sum(flatten, dim=1)
-        else:
-            raise NotImplementedError()
+        assert len(s.shape) == 4
+        return ops.reduce_sum(s, dim=[1, 2, 3])
 
     @staticmethod
     def logps(mean, logs, x):
@@ -374,8 +374,24 @@ class Split2d(nn.Module):
         self.num_channels = num_channels
         self.conv2d_zeros = Conv2dZeros(num_channels // 2, num_channels)
 
+    def prior(self, z):
+        h = self.conv2d_zeros(z)
+        mean = h[:, 0::2, :, :]
+        logs = h[:, 1::2, :, :]
+        return mean, logs
+
+    def forward(self, x, logdet=None, reverse=False):
+        pass
+
+
+class Squeeze2d(nn.Module):
+
+    def __init__(self, factor=2):
+        super().__init__()
+        self.factor = factor
+
     @staticmethod
-    def unsequeeze2d(x, factor=2):
+    def unsqueeze(x, factor=2):
         assert factor >= 1
         if factor == 1:
             return x
@@ -389,7 +405,7 @@ class Split2d(nn.Module):
         return x
 
     @staticmethod
-    def sequeeze2d(x, factor=2):
+    def squeeze(x, factor=2):
         assert factor >= 1
         if factor == 1:
             return x
@@ -402,11 +418,10 @@ class Split2d(nn.Module):
         x = x.view(-1, nc * factor * factor, nh // factor, nw // factor)
         return x
 
-    def prior(self, z):
-        h = self.conv2d_zeros(z)
-        mean = h[:, 0::2, :, :]
-        logs = h[:, 1::2, :, :]
-        return mean, logs
-
     def forward(self, x, logdet=None, reverse=False):
-        pass
+        if not reverse:
+            output = self.squeeze(x, self.factor)
+        else:
+            output = self.unsqueeze(x, self.factor)
+
+        return output, logdet

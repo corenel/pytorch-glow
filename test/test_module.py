@@ -3,7 +3,7 @@ import torch
 import unittest
 
 from network.module import (ActNorm, LinearZeros, Conv2d, Conv2dZeros,
-                            Invertible1x1Conv, Split2d)
+                            Invertible1x1Conv, Split2d, Squeeze2d)
 
 
 class TestModule(unittest.TestCase):
@@ -59,12 +59,13 @@ class TestModule(unittest.TestCase):
         self.assertTupleEqual((2, 16, 4, 4), tuple(y.shape))
         self.assertTrue(0 <= float(torch.max(torch.abs(x_ - x))) <= eps)
 
-    def test_sequeeze_unsequeeze(self):
+    def test_squeeze2d(self):
         # initial variables
         x = torch.Tensor(np.random.rand(2, 16, 4, 4))
+        squeeze = Squeeze2d(factor=2)
         # forward and reverse flow
-        y = Split2d.sequeeze2d(x)
-        x_ = Split2d.unsequeeze2d(y)
+        y, _ = squeeze(x)
+        x_, _ = squeeze(y, reverse=True)
         # assertion
         eps = 1e-6
         self.assertTrue(0 <= float(torch.max(torch.abs(x_ - x))) <= eps)

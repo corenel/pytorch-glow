@@ -10,5 +10,3 @@ def load_profile(setting):
             for key in list(conf.keys()):
                 setattr(setting, key, conf[key])
     return setting
-
-
