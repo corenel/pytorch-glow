@@ -343,6 +343,34 @@ class Invertible1x1Conv(nn.Module):
             return z, dlogdet
 
 
+class Permutation2d(nn.Module):
+
+    def __init__(self, num_channels, shuffle=False):
+        """
+        Perform permutation on channel dimension
+
+        :param num_channels:
+        :type num_channels:
+        :param shuffle:
+        :type shuffle:
+        """
+        super().__init__()
+        self.num_channels = num_channels
+        self.indices = np.arange(self.num_channels - 1, -1, -1, dtype=np.long)
+        if shuffle:
+            np.random.shuffle(self.indices)
+        self.indices_inverse = np.zeros(self.num_channels, dtype=np.long)
+        for i in range(self.num_channels):
+            self.indices_inverse[self.indices[i]] = i
+
+    def forward(self, x, reverse=False):
+        assert len(x.shape) == 4
+        if not reverse:
+            return x[:, self.indices, :, :]
+        else:
+            return x[:, self.indices_inverse, :, :]
+
+
 class GaussianDiag:
     """
     Generator of gaussian diagonal matrix

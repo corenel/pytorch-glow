@@ -3,7 +3,7 @@ import torch
 import unittest
 
 from network.module import (ActNorm, LinearZeros, Conv2d, Conv2dZeros,
-                            Invertible1x1Conv, Split2d, Squeeze2d)
+                            Invertible1x1Conv, Permutation2d, Split2d, Squeeze2d)
 from misc import ops
 
 
@@ -57,6 +57,20 @@ class TestModule(unittest.TestCase):
         # assertion
         self.assertTupleEqual((2, 16, 4, 4), tuple(y.shape))
         self.assertTrue(ops.tensor_equal(x, x_))
+
+    def test_permutation(self):
+        # initial variables
+        x = torch.Tensor(np.random.rand(2, 16, 4, 4))
+        reverse = Permutation2d(num_channels=16)
+        shuffle = Permutation2d(num_channels=16, shuffle=True)
+        # forward and reverse flow
+        y_reverse = reverse(x)
+        x_reverse = reverse(y_reverse, reverse=True)
+        y_shuffle = shuffle(x)
+        x_shuffle = shuffle(y_shuffle, reverse=True)
+        # assertion
+        self.assertTrue(ops.tensor_equal(x, x_reverse))
+        self.assertTrue(ops.tensor_equal(x, x_shuffle))
 
     def test_squeeze2d(self):
         # initial variables
