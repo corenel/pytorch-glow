@@ -1,13 +1,57 @@
 {
   "profile": "celebahq_256x256_5bit",
-  "image_size": 256,
-  "anchor_size": 32,
-  "width": 512,
-  "depth": 32,
-  "y_cond": false,
-  "weight_y": 0.0,
-  "n_bits_x": 5,
-  "n_levels": 6,
-  "coupling": "additive",
-  "n_batch_train": 40
+  "general": {
+    "verbose": false,
+    "root_dir": ".",
+    "restore_dir": "snapshot",
+    "log_dir": "snapshot",
+    "data_dir": "snapshot"
+  },
+  "dataset": {
+    "name": "celeba",
+    "argument": "standard",
+    "fmap": 1,
+    "pmap": 1
+  },
+  "optim": {
+    "epochs": 1000000,
+    "n_train": 50000,
+    "n_test": -1,
+    "n_sample": 1,
+    "interval_valid": 50,
+    "interval_sample": 50,
+    "n_batch_train": 64,
+    "n_batch_test": 50,
+    "n_batch_init": 256,
+    "optimizer": "adamax",
+    "adam_beta_1": 0.9,
+    "adam_eps": 1e-8,
+    "adam_polyak_epochs": 1,
+    "lr_base": 1e-3,
+    "lr_scheduler": "norm",
+    "lr_warmup_step": 4000,
+    "weight_decay": 1.0,
+    "gradient_checkpointing": true
+  },
+  "model": {
+    "image_shape": [
+      3,
+      256,
+      256
+    ],
+    "anchor_size": 32,
+    "hidden_channels": 512,
+    "K": 32,
+    "L": 3,
+    "weight_y": 0.0,
+    "n_bits_x": 8
+  },
+  "ablation": {
+    "learn_top": false,
+    "y_cond": false,
+    "lu_decomposition": false,
+    "seed": 0,
+    "flow_permutation": "invconv",
+    "flow_coupling": "additive"
+  }
 }

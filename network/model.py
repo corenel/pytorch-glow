@@ -319,8 +319,23 @@ class FlowModel(nn.Module):
 
 
 class Glow(nn.Module):
-    def __init__(self):
+    def __init__(self, hps):
+        """
+        Glow network
+
+        :param hps: hyper-parameters for this network
+        """
         super().__init__()
+
+        self.flow = FlowModel(
+            in_shape=hps.model.image_size,
+            hidden_channels=hps.model.hidden_channels,
+            K=hps.model.K,
+            L=hps.model.L,
+            permutation=hps.ablation.flow_permutation,
+            coupling=hps.ablation.flow_coupling,
+            actnorm_scale=hps.model.actnorm_scale,
+            lu_decomposition=hps.ablation.lu_decomposition)
 
     def forward(self, x):
         pass
