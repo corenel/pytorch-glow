@@ -327,6 +327,7 @@ class Glow(nn.Module):
         """
         super().__init__()
 
+        self.hps = hps
         self.flow = FlowModel(
             in_shape=hps.model.image_size,
             hidden_channels=hps.model.hidden_channels,
@@ -336,6 +337,15 @@ class Glow(nn.Module):
             coupling=hps.ablation.flow_coupling,
             actnorm_scale=hps.model.actnorm_scale,
             lu_decomposition=hps.ablation.lu_decomposition)
+
+        if hps.ablation.learn_top:
+            nc = self.flow.output_shapes[-1][1]
+            self.learn_top = module.Conv2dZeros(in_channels=2 * nc,
+                                                out_channels=2 * nc)
+        if hps.ablation.y_cond:
+            nc = self.flow.output_shapes[-1][1]
+            self.y_emb = module.LinearZeros(hps.dataset.n_classes, nc * 2)
+            self.classifier = module.LinearZeros(nc, hps.dataset.n_classes)
 
     def forward(self, x):
         pass

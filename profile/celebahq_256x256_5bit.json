@@ -8,7 +8,8 @@
     "data_dir": "snapshot"
   },
   "dataset": {
-    "name": "celeba",
+    "problem": "celeba",
+    "n_classes": 1,
     "argument": "standard",
     "fmap": 1,
     "pmap": 1
