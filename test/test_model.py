@@ -1,9 +1,10 @@
 import numpy as np
+import cv2
 import torch
 import unittest
 
-from network.model import FlowStep, FlowModel
-from misc import ops
+from network.model import FlowStep, FlowModel, Glow
+from misc import ops, util
 
 
 class TestModel(unittest.TestCase):
@@ -52,6 +53,26 @@ class TestModel(unittest.TestCase):
                 # assertion
                 self.assertEqual(x.shape, x_.shape)
                 self.assertTupleEqual((2, 48, 2, 2), tuple(y.shape))
+
+    def test_glow_model(self):
+        # build model
+        hps = util.load_profile('profile/celebahq_256x256_5bit.json')
+        glow_model = Glow(hps)
+        glow_model.cuda()
+        image_shape = hps.model.image_shape
+        # read image
+        img = cv2.imread('misc/test.png')
+        img = cv2.resize(img, (image_shape[0], image_shape[1]))
+        img = (img / 255.0).astype(np.float32)
+        img = img[:, :, ::-1].transpose(2, 0, 1)
+        x = torch.Tensor([img] * 2).cuda()
+        y_onehot = torch.zeros((2, 40))
+        # forward and reverse flow
+        z, logdet, y_logits = glow_model(x=x, y_onehot=y_onehot, reverse=False)
+        x_ = glow_model(z=z, y_onehot=y_onehot)
+        # assertion
+        # self.assertEqual(x.shape, x_.shape)
+        # self.assertTupleEqual((2, 48, 2, 2), tuple(y.shape))
 
 
 if __name__ == '__main__':

@@ -319,6 +319,9 @@ class FlowModel(nn.Module):
 
 
 class Glow(nn.Module):
+    bce_criterion = nn.BCEWithLogitsLoss()
+    ce_criterion = nn.CrossEntropyLoss()
+
     def __init__(self, hps):
         """
         Glow network
@@ -329,7 +332,7 @@ class Glow(nn.Module):
 
         self.hps = hps
         self.flow = FlowModel(
-            in_shape=hps.model.image_size,
+            in_shape=hps.model.image_shape,
             hidden_channels=hps.model.hidden_channels,
             K=hps.model.K,
             L=hps.model.L,
@@ -347,5 +350,118 @@ class Glow(nn.Module):
             self.y_emb = module.LinearZeros(hps.dataset.n_classes, nc * 2)
             self.classifier = module.LinearZeros(nc, hps.dataset.n_classes)
 
-    def forward(self, x):
-        pass
+        # TODO get number of deivce from config
+        num_device = torch.cuda.device_count()
+        assert hps.optim.n_batch_train % num_device == 0
+        self.register_parameter('h_top',
+                                nn.Parameter(torch.zeros([hps.optim.n_batch_train // num_device,
+                                                          self.flow.output_shapes[-1][1] * 2,
+                                                          self.flow.output_shapes[-1][2],
+                                                          self.flow.output_shapes[-1][3]])))
+
+    def prior(self, y_onehot=None):
+        nc = self.h_top.shape[1]
+        h = self.h_top.detach().clone()
+        assert torch.sum(h) == 0.
+        if self.hps.ablation.learn_top:
+            h = self.learn_top(h)
+        if self.hps.ablation.y_cond:
+            assert y_onehot is not None
+            h += self.y_emb(y_onehot).view(-1, nc, 1, 1)
+        return ops.split_channel(h, 'simple')
+
+    def preprocess(self, x):
+        n_bins = 2 ** self.hps.model.n_bits_x
+        if self.hps.model.n_bits_x < 8:
+            x = torch.floor(x / 2 ** (8 - self.hps.model.n_bits_x))
+        x = x / n_bins - .5
+        return x
+
+    def postprocess(self, x):
+        n_bins = 2 ** self.hps.model.n_bits_x
+        x = torch.clamp(torch.floor((x + .5) * n_bins) * (256. / n_bins), min=0, max=255)
+        return x
+
+    def normal_flow(self, x, y_onehot):
+        # Pre-process for z
+        objective = torch.zeros_like(x[:, 0, 0, 0])
+        z = self.preprocess(x)
+        n_bins = 2 ** self.hps.model.n_bits_x
+        z = z + torch.nn.init.uniform_(torch.empty(*z.shape), 0, 1. / n_bins)
+
+        # Initialize logdet
+        logdet_factor = z.shape[1] * z.shape[2]  # H * W
+        objective += float(-np.log(n_bins)) * logdet_factor
+
+        # Encode
+        z, objective = self.flow(z, logdet=objective, reverse=False)
+
+        # Prior
+        mean, logs = self.prior(y_onehot)
+        objective += module.GaussianDiag.logp(mean, logs, z)
+
+        # Prediction loss
+        if self.hps.ablation.y_cond and self.hps.model.weight_y > 0:
+            h_y = ops.reduce_mean(z, dim=[2, 3])
+            y_logits = self.classifier(h_y)
+        else:
+            y_logits = None
+
+        # Generative loss
+        nobj = -objective
+        # negative log-likelihood
+        nll = nobj / float(np.log(2.) * x.shape[2] * x.shape[3])
+        return z, nll, y_logits
+
+    def reverse_flow(self, z, y_onehot, eps_std=None):
+        with torch.no_grad():
+            mean, logs = self.prior(y_onehot)
+            if z is None:
+                z = module.GaussianDiag.sample(mean, logs, eps_std)
+            x = self.flow(z, eps_std=eps_std, reverse=True)
+            x = self.postprocess(x)
+            return x
+
+    def forward(self, x=None, y_onehot=None,
+                z=None, eps_std=None,
+                reverse=False):
+        if not reverse:
+            return self.normal_flow(x, y_onehot)
+        else:
+            return self.reverse_flow(z, y_onehot, eps_std)
+
+    @staticmethod
+    def generative_loss(nll):
+        return torch.mean(nll)
+
+    @staticmethod
+    def multi_class_loss(y_logits, y_onehot):
+        """
+        Classification loss for multiple target class problem
+
+        :param y_logits: prediction in the shape of (N, Classes)
+        :type y_logits: torch.Tensor
+        :param y_onehot: one-hot targte vector in the shape of (N, Classes)
+        :type y_onehot: torch.Tensor
+        :return: classification loss
+        :rtype: torch.Tensor
+        """
+        if y_logits is None:
+            return 0
+        return Glow.bce_criterion(y_logits, y_onehot.float())
+
+    @staticmethod
+    def single_class_loss(y_logits, y):
+        """
+        Classification loss for single target class problem
+
+        :param y_logits: prediction in the shape of (N, Classes)
+        :type y_logits: torch.Tensor
+        :param y: target in the shape of (N)
+        :type y: torch.Tensor
+        :return: classification loss
+        :rtype: torch.Tensor
+        """
+        if y_logits is None:
+            return 0
+        return Glow.ce_criterion(y_logits, y.long())
