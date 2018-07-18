@@ -90,3 +90,51 @@ def tensor_equal(a, b, eps=1e-6):
         return False
 
     return 0 <= float(torch.max(torch.abs(a - b))) <= eps
+
+
+def split_channel(tensor, split_type='simple'):
+    """
+    Split channels of tensor
+
+    :param tensor: input tensor
+    :type tensor: torch.Tensor
+    :param split_type: type of splitting
+    :type split_type: str
+    :return: split tensor
+    :rtype: tuple(torch.Tensor, torch.Tensor)
+    """
+    assert len(tensor.shape) == 4
+    assert split_type in ['simple', 'cross']
+
+    nc = tensor.shape[1]
+    if split_type == 'simple':
+        return tensor[:, :nc // 2, ...], tensor[:, nc // 2:, ...]
+    elif split_type == 'cross':
+        return tensor[:, 0::2, ...], tensor[:, 1::2, ...]
+
+
+def cat_channel(a, b):
+    """
+    Concatenates channels of tensors
+
+    :param a: input tensor a
+    :type a: torch.Tensor
+    :param b: input tensor b
+    :type b: torch.Tensor
+    :return: concatenated tensor
+    :rtype: torch.Tensor
+    """
+    return torch.cat((a, b), dim=1)
+
+
+def count_pixels(tensor):
+    """
+    Count number of pixels in given tensor
+
+    :param tensor: input tensor
+    :type tensor: torch.Tensor
+    :return: number of pixels
+    :rtype: int
+    """
+    assert len(tensor.shape) == 4
+    return int(tensor.shape[2] * tensor.shape[3])
