@@ -56,20 +56,19 @@ class TestModel(unittest.TestCase):
 
     def test_glow_model(self):
         # build model
-        hps = util.load_profile('profile/celebahq_256x256_5bit.json')
-        glow_model = Glow(hps)
-        glow_model.cuda()
+        hps = util.load_profile('profile/test.json')
+        glow_model = Glow(hps).cuda()
         image_shape = hps.model.image_shape
         # read image
         img = cv2.imread('misc/test.png')
         img = cv2.resize(img, (image_shape[0], image_shape[1]))
         img = (img / 255.0).astype(np.float32)
         img = img[:, :, ::-1].transpose(2, 0, 1)
-        x = torch.Tensor([img] * 2).cuda()
-        y_onehot = torch.zeros((2, 40))
+        x = torch.Tensor([img] * hps.optim.n_batch_train).cuda()
+        y_onehot = torch.zeros((2, hps.dataset.n_classes)).cuda()
         # forward and reverse flow
         z, logdet, y_logits = glow_model(x=x, y_onehot=y_onehot, reverse=False)
-        x_ = glow_model(z=z, y_onehot=y_onehot)
+        x_ = glow_model(z=z, y_onehot=y_onehot, reverse=True)
         # assertion
         # self.assertEqual(x.shape, x_.shape)
         # self.assertTupleEqual((2, 48, 2, 2), tuple(y.shape))

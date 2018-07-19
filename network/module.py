@@ -135,6 +135,8 @@ class ActNorm(nn.Module):
         assert len(x.shape) == 4
         assert x.shape[1] == self.num_channels, \
             'Input shape should be NxCxHxW, however channels are {} instead of {}'.format(x.shape[1], self.num_channels)
+        assert x.device == self.bias.device and x.device == self.logs.device, \
+            'Expect input device {} instead of {}'.format(self.bias.device, x.device)
 
         if not reverse:
             # center and scale

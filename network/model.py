@@ -384,13 +384,13 @@ class Glow(nn.Module):
 
     def normal_flow(self, x, y_onehot):
         # Pre-process for z
-        objective = torch.zeros_like(x[:, 0, 0, 0])
-        z = self.preprocess(x)
         n_bins = 2 ** self.hps.model.n_bits_x
-        z = z + torch.nn.init.uniform_(torch.empty(*z.shape), 0, 1. / n_bins)
+        z = self.preprocess(x)
+        z = z + torch.nn.init.uniform_(torch.empty(*z.shape, device=z.device), 0, 1. / n_bins)
 
         # Initialize logdet
         logdet_factor = z.shape[1] * z.shape[2]  # H * W
+        objective = torch.zeros_like(x[:, 0, 0, 0])
         objective += float(-np.log(n_bins)) * logdet_factor
 
         # Encode
@@ -418,11 +418,12 @@ class Glow(nn.Module):
             mean, logs = self.prior(y_onehot)
             if z is None:
                 z = module.GaussianDiag.sample(mean, logs, eps_std)
-            x = self.flow(z, eps_std=eps_std, reverse=True)
+            x, det = self.flow(z, eps_std=eps_std, reverse=True)
             x = self.postprocess(x)
-            return x
+            return x, det
 
-    def forward(self, x=None, y_onehot=None,
+    def forward(self,
+                x=None, y_onehot=None,
                 z=None, eps_std=None,
                 reverse=False):
         if not reverse:

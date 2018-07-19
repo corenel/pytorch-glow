@@ -21,7 +21,7 @@
     "n_sample": 1,
     "interval_valid": 50,
     "interval_sample": 50,
-    "n_batch_train": 64,
+    "n_batch_train": 16,
     "n_batch_test": 50,
     "n_batch_init": 256,
     "optimizer": "adamax",
