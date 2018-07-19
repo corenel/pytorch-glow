@@ -55,5 +55,14 @@
     "seed": 0,
     "flow_permutation": "invconv",
     "flow_coupling": "additive"
+  },
+  "device": {
+    "model": [
+      "cuda:0",
+      "cuda:1"
+    ],
+    "data":[
+      "cpu"
+    ]
   }
 }
