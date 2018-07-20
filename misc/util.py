@@ -1,9 +1,16 @@
 import os
 import re
+import sys
+import glob
 import json
+import shutil
+import numpy as np
 import torch
+
 from easydict import EasyDict
 
+
+# Profile
 
 def load_profile(filepath):
     """
@@ -18,6 +25,8 @@ def load_profile(filepath):
         with open(filepath) as f:
             return EasyDict(json.load(f))
 
+
+# Device
 
 def get_devices(devices):
     """
@@ -59,3 +68,279 @@ def get_devices(devices):
             devices = ['cpu']
 
     return devices
+
+
+# Logger
+
+class OutputLogger(object):
+    """Output logger"""
+
+    def __init__(self):
+        self.file = None
+        self.buffer = ''
+
+    def set_log_file(self, filename, mode='wt'):
+        assert self.file is None
+        self.file = open(filename, mode)
+        if self.buffer is not None:
+            self.file.write(self.buffer)
+            self.buffer = None
+
+    def write(self, data):
+        if self.file is not None:
+            self.file.write(data)
+        if self.buffer is not None:
+            self.buffer += data
+
+    def flush(self):
+        if self.file is not None:
+            self.file.flush()
+
+
+class TeeOutputStream(object):
+    """Redirect output stream"""
+
+    def __init__(self, child_streams, autoflush=False):
+        self.child_streams = child_streams
+        self.autoflush = autoflush
+
+    def write(self, data):
+        if isinstance(data, bytes):
+            data = data.decode('utf-8')
+        for stream in self.child_streams:
+            stream.write(data)
+        if self.autoflush:
+            self.flush()
+
+    def flush(self):
+        for stream in self.child_streams:
+            stream.flush()
+
+
+output_logger = None
+
+
+def init_output_logging():
+    """
+    Initialize output logger
+    """
+    global output_logger
+    if output_logger is None:
+        output_logger = OutputLogger()
+        sys.stdout = TeeOutputStream([sys.stdout, output_logger], autoflush=True)
+        sys.stderr = TeeOutputStream([sys.stderr, output_logger], autoflush=True)
+
+
+def set_output_log_file(filename, mode='wt'):
+    """
+    Set file name of output log
+
+    :param filename: file name of log
+    :type filename: str
+    :param mode: the mode in which the file is opened
+    :type mode: str
+    """
+    if output_logger is not None:
+        output_logger.set_log_file(filename, mode)
+
+
+# Result directory
+
+def create_result_subdir(result_dir, desc, profile_path):
+    """
+    Create and initialize result sub-directory
+
+    :param result_dir: path to root of result directory
+    :type result_dir: str
+    :param desc: description of current experiment
+    :type desc: str
+    :param profile_path: path to profile file
+    :type profile_path: str
+    :return: path to result sub-directory
+    :rtype: str
+    """
+    # determine run id
+    run_id = 0
+    for fname in glob.glob(os.path.join(result_dir, '*')):
+        fbase = os.path.basename(fname)
+        finds = re.findall('^([\d]+)-', fbase)
+        if len(finds) != 0:
+            ford = int(finds[0])
+            run_id = max(run_id, ford + 1)
+
+    # create result sub-directory
+    result_subdir = os.path.join(result_dir, '{:03d}-{:s}'.format(run_id, desc))
+    if not os.path.exists(result_subdir):
+        os.makedirs(result_subdir)
+    set_output_log_file(os.path.join(result_subdir, 'log.txt'))
+    print("Saving results to {}".format(result_subdir))
+
+    # export profile
+    if os.path.exists(profile_path):
+        shutil.copy(profile_path, result_subdir)
+
+    return result_subdir
+
+
+def locate_result_subdir(result_dir, run_id_or_result_subdir):
+    """
+    Locate result subdir by given run id or path
+
+    :param result_dir: path to root of result directory
+    :type result_dir: str
+    :param run_id_or_result_subdir: run id or subdir path
+    :type run_id_or_result_subdir: int or str
+    :return: located result subdir
+    :rtype: str
+    """
+    if isinstance(run_id_or_result_subdir, str) and os.path.isdir(run_id_or_result_subdir):
+        return run_id_or_result_subdir
+
+    searchdirs = ['', 'results', 'networks']
+
+    for searchdir in searchdirs:
+        d = result_dir if searchdir == '' else os.path.join(result_dir, searchdir)
+        # search directly by name
+        d = os.path.join(d, str(run_id_or_result_subdir))
+        if os.path.isdir(d):
+            return d
+        # search by prefix
+        if isinstance(run_id_or_result_subdir, int):
+            prefix = '{:03d}'.format(run_id_or_result_subdir)
+        else:
+            prefix = str(run_id_or_result_subdir)
+        dirs = sorted(glob.glob(os.path.join(result_dir, searchdir, prefix + '-*')))
+        dirs = [d for d in dirs if os.path.isdir(d)]
+        if len(dirs) == 1:
+            return dirs[0]
+    raise IOError('Cannot locate result subdir for run', run_id_or_result_subdir)
+
+
+def format_time(seconds):
+    """
+    Format seconds into desired format
+
+    :param seconds: number of seconds
+    :type seconds: float
+    :return: formatted time
+    :rtype: str
+    """
+    s = int(np.rint(seconds))
+    if s < 60:
+        return '{:d}s'.format(s)
+    elif s < 60 * 60:
+        return '{:d}m {:02d}s'.format(s // 60, s % 60)
+    elif s < 24 * 60 * 60:
+        return '{:d}h {:02d}m {:02}ds'.format(s // (60 * 60), (s // 60) % 60, s % 60)
+    else:
+        return '{:d}d {:02d}h {:02d}m'.format(s // (24 * 60 * 60), (s // (60 * 60)) % 24, (s // 60) % 60)
+
+
+# Model
+
+def get_model_name(step):
+    """
+    Return filename of model snapshot by step
+
+    :param step: global step of model
+    :type step: int
+    :return: model snapshot file name
+    :rtype: str
+    """
+    return "network-snapshot-{:06d}.pth".format(step)
+
+
+def get_best_model_name():
+    """
+    Return filename of best model snapshot by step
+
+    :return: filename of best model snapshot
+    :rtype: str
+    """
+    return "network-snapshot-best.pth"
+
+
+def save_model(result_subdir, step, graph, optim, criterion_dict, seconds, is_best):
+    """
+    Save model snapshot to result subdir
+
+    :param result_subdir: path to result sub-directory
+    :type result_subdir: str
+    :param step: global step of model
+    :type step: int
+    :param graph: model graph
+    :type graph: torch.nn.Module
+    :param optim: optimizer
+    :type optim: torch.optim.Optimizer
+    :param criterion_dict: dict of criterion
+    :type criterion_dict: dict
+    :param seconds: seconds of running time
+    :type seconds: float
+    :param is_best: whether this model is best
+    :type is_best: bool
+    """
+    # construct state
+    state = {
+        'step': step,
+        # DataParallel wraps model in `module` attribute.
+        'graph': graph.module.state_dict() if hasattr(graph, "module") else graph.state_dict(),
+        'optim': optim.state_dict(),
+        'criterion': {},
+        'seconds': seconds
+    }
+    if criterion_dict is not None:
+        state['criterion'] = {k: v.state_dict() for k, v in criterion_dict.items()}
+
+    # save current state
+    save_path = os.path.join(result_subdir, get_model_name(step))
+    torch.save(state, save_path)
+
+    # save best state
+    if is_best:
+        best_path = os.path.join(result_subdir, get_best_model_name())
+        shutil.copy(save_path, best_path)
+
+
+def load_model(result_subdir, step_or_model_path, graph, optim=None, criterion_dict=None, device=None):
+    """
+    lOad model snapshot from esult subdir
+
+    :param result_subdir: path to result sub-directory
+    :type result_subdir: str
+    :param step_or_model_path: step or model path
+    :type step_or_model_path: int or str
+    :param graph: model graph
+    :type graph: torch.nn.Module
+    :param optim: optimizer
+    :type optim: torch.optim.Optimizer
+    :param criterion_dict: dict of criterion
+    :type criterion_dict: dict
+    :param device: device to run mode
+    :type device: list[str]
+    :return: global step
+    :rtype: int
+    """
+    # check existence of model file
+    model_path = step_or_model_path
+    if isinstance(step_or_model_path, int):
+        model_path = get_model_name(step_or_model_path)
+    if step_or_model_path == 'best':
+        model_path = get_best_model_name()
+    if not os.path.exists(model_path):
+        model_path = os.path.join(result_subdir, model_path)
+        if not os.path.exists(model_path):
+            raise FileNotFoundError('Failed to find model snapshot with {}'.format(step_or_model_path))
+
+    # load model snapshot
+    state = torch.load(model_path)
+    step = state['step']
+    graph.load_state_dict(state['graph'])
+    graph.set_actnorm_inited()
+    if optim is not None:
+        optim.load_state_dict(state['optim'])
+    if criterion_dict is not None:
+        for k in criterion_dict.keys():
+            criterion_dict[k].load_state_dict(state['criterion'][k])
+    print('Load model snapshot successfully from {}'.format(model_path))
+
+    return step

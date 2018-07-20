@@ -466,3 +466,14 @@ class Glow(nn.Module):
         if y_logits is None:
             return 0
         return Glow.ce_criterion(y_logits, y.long())
+
+    def set_actnorm_inited(self, inited=True):
+        """
+        Set bias and logs of ActNorm layer initialized
+
+        :param inited: initialization state
+        :type inited: bool
+        """
+        for name, m in self.named_modules():
+            if m.__class__.__name__.find("ActNorm") >= 0:
+                m.inited = inited

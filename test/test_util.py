@@ -25,6 +25,15 @@ class TestUtil(unittest.TestCase):
             devices = ['cuda:0', 'cuda:1']
             self.assertListEqual([0, 1], util.get_devices(devices))
 
+    def test_result_subdir(self):
+        result_dir = '/tmp'
+        result_subdir = util.create_result_subdir(result_dir,
+                                                  desc='test',
+                                                  profile_path='profile/test.json')
+        util.locate_result_subdir(result_dir, result_subdir)
+        util.locate_result_subdir(result_dir, 0)
+        util.locate_result_subdir(result_dir, '000')
+
 
 if __name__ == '__main__':
     unittest.main()
