@@ -327,6 +327,7 @@ class Glow(nn.Module):
         Glow network
 
         :param hps: hyper-parameters for this network
+        :type hps: dict
         """
         super().__init__()
 

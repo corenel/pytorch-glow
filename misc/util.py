@@ -260,7 +260,7 @@ def get_best_model_name():
     return "network-snapshot-best.pth"
 
 
-def save_model(result_subdir, step, graph, optim, criterion_dict, seconds, is_best):
+def save_model(result_subdir, step, graph, optimizer, criterion_dict, seconds, is_best):
     """
     Save model snapshot to result subdir
 
@@ -270,8 +270,8 @@ def save_model(result_subdir, step, graph, optim, criterion_dict, seconds, is_be
     :type step: int
     :param graph: model graph
     :type graph: torch.nn.Module
-    :param optim: optimizer
-    :type optim: torch.optim.Optimizer
+    :param optimizer: optimizer
+    :type optimizer: torch.optim.Optimizer
     :param criterion_dict: dict of criterion
     :type criterion_dict: dict
     :param seconds: seconds of running time
@@ -284,7 +284,7 @@ def save_model(result_subdir, step, graph, optim, criterion_dict, seconds, is_be
         'step': step,
         # DataParallel wraps model in `module` attribute.
         'graph': graph.module.state_dict() if hasattr(graph, "module") else graph.state_dict(),
-        'optim': optim.state_dict(),
+        'optimizer': optimizer.state_dict(),
         'criterion': {},
         'seconds': seconds
     }
@@ -301,7 +301,7 @@ def save_model(result_subdir, step, graph, optim, criterion_dict, seconds, is_be
         shutil.copy(save_path, best_path)
 
 
-def load_model(result_subdir, step_or_model_path, graph, optim=None, criterion_dict=None, device=None):
+def load_model(result_subdir, step_or_model_path, graph, optimizer=None, criterion_dict=None, device=None):
     """
     lOad model snapshot from esult subdir
 
@@ -311,8 +311,8 @@ def load_model(result_subdir, step_or_model_path, graph, optim=None, criterion_d
     :type step_or_model_path: int or str
     :param graph: model graph
     :type graph: torch.nn.Module
-    :param optim: optimizer
-    :type optim: torch.optim.Optimizer
+    :param optimizer: optimizer
+    :type optimizer: torch.optim.Optimizer
     :param criterion_dict: dict of criterion
     :type criterion_dict: dict
     :param device: device to run mode
@@ -336,8 +336,8 @@ def load_model(result_subdir, step_or_model_path, graph, optim=None, criterion_d
     step = state['step']
     graph.load_state_dict(state['graph'])
     graph.set_actnorm_inited()
-    if optim is not None:
-        optim.load_state_dict(state['optim'])
+    if optimizer is not None:
+        optimizer.load_state_dict(state['optimizer'])
     if criterion_dict is not None:
         for k in criterion_dict.keys():
             criterion_dict[k].load_state_dict(state['criterion'][k])

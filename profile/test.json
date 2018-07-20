@@ -25,13 +25,16 @@
     "n_batch_test": 50,
     "n_batch_init": 256,
     "optimizer": "adamax",
-    "adam_beta_1": 0.9,
-    "adam_eps": 1e-8,
-    "adam_polyak_epochs": 1,
-    "lr_base": 1e-3,
-    "lr_scheduler": "norm",
-    "lr_warmup_step": 4000,
-    "weight_decay": 1.0,
+    "optimizer_args":{
+      "lr": 1e-3,
+      "betas": [0.9, 0.99],
+      "eps": 1e-8,
+      "weight_decay": 0
+    },
+    "lr_scheduler": "noam",
+    "lr_shceduler_args": {
+      "warmup_steps": 4000,
+    },
     "gradient_checkpointing": true
   },
   "model": {
@@ -57,7 +60,7 @@
     "flow_coupling": "additive"
   },
   "device": {
-    "model": [
+    "graph": [
       "cuda:0",
       "cuda:1"
     ],
