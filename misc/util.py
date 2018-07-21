@@ -146,7 +146,7 @@ def set_output_log_file(filename, mode='wt'):
 
 # Result directory
 
-def create_result_subdir(result_dir, desc, profile_path):
+def create_result_subdir(result_dir, desc, profile):
     """
     Create and initialize result sub-directory
 
@@ -154,8 +154,8 @@ def create_result_subdir(result_dir, desc, profile_path):
     :type result_dir: str
     :param desc: description of current experiment
     :type desc: str
-    :param profile_path: path to profile file
-    :type profile_path: str
+    :param profile: profile
+    :type profile: dict
     :return: path to result sub-directory
     :rtype: str
     """
@@ -176,8 +176,8 @@ def create_result_subdir(result_dir, desc, profile_path):
     print("Saving results to {}".format(result_subdir))
 
     # export profile
-    if os.path.exists(profile_path):
-        shutil.copy(profile_path, result_subdir)
+    with open(os.path.join(result_subdir, 'config.json'), 'w') as f:
+        json.dump(profile, f)
 
     return result_subdir
 
@@ -213,7 +213,8 @@ def locate_result_subdir(result_dir, run_id_or_result_subdir):
         dirs = [d for d in dirs if os.path.isdir(d)]
         if len(dirs) == 1:
             return dirs[0]
-    raise IOError('Cannot locate result subdir for run', run_id_or_result_subdir)
+    print('Cannot locate result subdir for run: {}'.format(run_id_or_result_subdir))
+    return None
 
 
 def format_time(seconds):
@@ -247,7 +248,7 @@ def get_model_name(step):
     :return: model snapshot file name
     :rtype: str
     """
-    return "network-snapshot-{:06d}.pth".format(step)
+    return 'network-snapshot-{:06d}.pth'.format(step)
 
 
 def get_best_model_name():
@@ -257,7 +258,27 @@ def get_best_model_name():
     :return: filename of best model snapshot
     :rtype: str
     """
-    return "network-snapshot-best.pth"
+    return 'network-snapshot-best.pth'
+
+
+def get_last_model_name(result_subdir):
+    """
+    Return filename of best model snapshot by step
+
+    :param result_subdir: path to result sub-directory
+    :type result_subdir: str
+    :return: filename of last model snapshot
+    :rtype: str
+    """
+    latest = -1
+    for f in os.listdir(result_subdir):
+        if os.path.isfile(os.path.join(result_subdir, f)) and \
+                re.search('network-snapshot-([\d]+).pth', f):
+            f_step = int(re.findall('network-snapshot-([\d]+).pth', f)[0])
+            if latest < f_step:
+                latest = f_step
+
+    return get_model_name(latest)
 
 
 def save_model(result_subdir, step, graph, optimizer, criterion_dict, seconds, is_best):
@@ -316,9 +337,9 @@ def load_model(result_subdir, step_or_model_path, graph, optimizer=None, criteri
     :param criterion_dict: dict of criterion
     :type criterion_dict: dict
     :param device: device to run mode
-    :type device: list[str]
-    :return: global step
-    :rtype: int
+    :type device: str
+    :return: state
+    :rtype: dict
     """
     # check existence of model file
     model_path = step_or_model_path
@@ -326,13 +347,15 @@ def load_model(result_subdir, step_or_model_path, graph, optimizer=None, criteri
         model_path = get_model_name(step_or_model_path)
     if step_or_model_path == 'best':
         model_path = get_best_model_name()
+    if step_or_model_path == 'latest':
+        model_path = None
     if not os.path.exists(model_path):
         model_path = os.path.join(result_subdir, model_path)
         if not os.path.exists(model_path):
             raise FileNotFoundError('Failed to find model snapshot with {}'.format(step_or_model_path))
 
     # load model snapshot
-    state = torch.load(model_path)
+    state = torch.load(model_path, map_location=device)
     step = state['step']
     graph.load_state_dict(state['graph'])
     graph.set_actnorm_inited()
@@ -343,4 +366,4 @@ def load_model(result_subdir, step_or_model_path, graph, optimizer=None, criteri
             criterion_dict[k].load_state_dict(state['criterion'][k])
     print('Load model snapshot successfully from {}'.format(model_path))
 
-    return step
+    return state

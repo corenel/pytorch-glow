@@ -2,10 +2,11 @@
   "profile": "celebahq_256x256_5bit",
   "general": {
     "verbose": false,
-    "root_dir": ".",
-    "restore_dir": "snapshot",
-    "log_dir": "snapshot",
-    "data_dir": "snapshot"
+    "result_dir": ".",
+    "warm_start": true,
+    "pre_trained": "",
+    "resume_run_id": 0,
+    "resume_step": "latest"
   },
   "dataset": {
     "problem": "celeba",
@@ -25,15 +26,18 @@
     "n_batch_test": 50,
     "n_batch_init": 256,
     "optimizer": "adamax",
-    "optimizer_args":{
+    "optimizer_args": {
       "lr": 1e-3,
-      "betas": [0.9, 0.99],
+      "betas": [
+        0.9,
+        0.99
+      ],
       "eps": 1e-8,
       "weight_decay": 0
     },
     "lr_scheduler": "noam",
-    "lr_shceduler_args": {
-      "warmup_steps": 4000,
+    "lr_scheduler_args": {
+      "warmup_steps": 4000
     },
     "gradient_checkpointing": true
   },
@@ -64,7 +68,7 @@
       "cuda:0",
       "cuda:1"
     ],
-    "data":[
+    "data": [
       "cpu"
     ]
   }
