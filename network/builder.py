@@ -41,6 +41,7 @@ class Builder:
         # initialize all variables
         step = 0
         state = None
+        result_subdir = None
         graph, optimizer, scheduler, criterion_dict = None, None, None, None
         devices = util.get_devices(self.hps.device.graph)
         data_device = util.get_devices(self.hps.device.data)
@@ -51,8 +52,6 @@ class Builder:
 
         # load model
         if graph is not None:
-            result_subdir = None
-
             # locate or create result subdir
             if self.hps.general.resume_run_id != "":
                 result_subdir = util.locate_result_subdir(self.hps.general.result_dir,
@@ -107,4 +106,5 @@ class Builder:
             'scheduler': scheduler,
             'devices': devices,
             'data_device': data_device,
+            'result_subdir': result_subdir
         }

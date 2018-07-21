@@ -64,8 +64,8 @@ class TestModel(unittest.TestCase):
         img = cv2.resize(img, (image_shape[0], image_shape[1]))
         img = (img / 255.0).astype(np.float32)
         img = img[:, :, ::-1].transpose(2, 0, 1)
-        x = torch.Tensor([img] * hps.optim.n_batch_train).cuda()
-        y_onehot = torch.zeros((2, hps.dataset.n_classes)).cuda()
+        x = torch.Tensor([img] * hps.optim.num_batch_train).cuda()
+        y_onehot = torch.zeros((2, hps.dataset.num_classes)).cuda()
         # forward and reverse flow
         z, logdet, y_logits = glow_model(x=x, y_onehot=y_onehot, reverse=False)
         x_ = glow_model(z=z, y_onehot=y_onehot, reverse=True)

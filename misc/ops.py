@@ -138,3 +138,23 @@ def count_pixels(tensor):
     """
     assert len(tensor.shape) == 4
     return int(tensor.shape[2] * tensor.shape[3])
+
+
+def onehot(y, num_classes):
+    """
+    Generate one-hot vector
+
+    :param y: ground truth labels
+    :type y: torch.Tensor
+    :param num_classes: number os classes
+    :type num_classes: int
+    :return: one-hot vector generated from labels
+    :rtype: torch.Tensor
+    """
+    assert len(y.shape) in [1, 2], "Label y should be 1D or 2D vector"
+    y_onehot = torch.zeros(y.shape[0], num_classes, device=y.device)
+    if len(y.shape) == 1:
+        y_onehot = y_onehot.scatter_(1, y.unsqueeze(-1), 1)
+    else:
+        y_onehot = y_onehot.scatter_(1, y, 1)
+    return y_onehot

@@ -346,16 +346,16 @@ class Glow(nn.Module):
             nc = self.flow.output_shapes[-1][1]
             self.learn_top = module.Conv2dZeros(in_channels=2 * nc,
                                                 out_channels=2 * nc)
-        if hps.ablation.y_cond:
+        if hps.ablation.y_condition:
             nc = self.flow.output_shapes[-1][1]
-            self.y_emb = module.LinearZeros(hps.dataset.n_classes, nc * 2)
-            self.classifier = module.LinearZeros(nc, hps.dataset.n_classes)
+            self.y_emb = module.LinearZeros(hps.dataset.num_classes, nc * 2)
+            self.classifier = module.LinearZeros(nc, hps.dataset.num_classes)
 
         # TODO get number of deivce from config
         num_device = torch.cuda.device_count()
-        assert hps.optim.n_batch_train % num_device == 0
+        assert hps.optim.num_batch_train % num_device == 0
         self.register_parameter('h_top',
-                                nn.Parameter(torch.zeros([hps.optim.n_batch_train // num_device,
+                                nn.Parameter(torch.zeros([hps.optim.num_batch_train // num_device,
                                                           self.flow.output_shapes[-1][1] * 2,
                                                           self.flow.output_shapes[-1][2],
                                                           self.flow.output_shapes[-1][3]])))
@@ -366,7 +366,7 @@ class Glow(nn.Module):
         assert torch.sum(h) == 0.
         if self.hps.ablation.learn_top:
             h = self.learn_top(h)
-        if self.hps.ablation.y_cond:
+        if self.hps.ablation.y_condition:
             assert y_onehot is not None
             h += self.y_emb(y_onehot).view(-1, nc, 1, 1)
         return ops.split_channel(h, 'simple')
@@ -402,7 +402,7 @@ class Glow(nn.Module):
         objective += module.GaussianDiag.logp(mean, logs, z)
 
         # Prediction loss
-        if self.hps.ablation.y_cond and self.hps.model.weight_y > 0:
+        if self.hps.ablation.y_condition and self.hps.model.weight_y > 0:
             h_y = ops.reduce_mean(z, dim=[2, 3])
             y_logits = self.classifier(h_y)
         else:
@@ -437,22 +437,6 @@ class Glow(nn.Module):
         return torch.mean(nll)
 
     @staticmethod
-    def multi_class_loss(y_logits, y_onehot):
-        """
-        Classification loss for multiple target class problem
-
-        :param y_logits: prediction in the shape of (N, Classes)
-        :type y_logits: torch.Tensor
-        :param y_onehot: one-hot targte vector in the shape of (N, Classes)
-        :type y_onehot: torch.Tensor
-        :return: classification loss
-        :rtype: torch.Tensor
-        """
-        if y_logits is None:
-            return 0
-        return Glow.bce_criterion(y_logits, y_onehot.float())
-
-    @staticmethod
     def single_class_loss(y_logits, y):
         """
         Classification loss for single target class problem
@@ -467,6 +451,22 @@ class Glow(nn.Module):
         if y_logits is None:
             return 0
         return Glow.ce_criterion(y_logits, y.long())
+
+    @staticmethod
+    def multi_class_loss(y_logits, y_onehot):
+        """
+        Classification loss for multiple target class problem
+
+        :param y_logits: prediction in the shape of (N, Classes)
+        :type y_logits: torch.Tensor
+        :param y_onehot: one-hot targte vector in the shape of (N, Classes)
+        :type y_onehot: torch.Tensor
+        :return: classification loss
+        :rtype: torch.Tensor
+        """
+        if y_logits is None:
+            return 0
+        return Glow.bce_criterion(y_logits, y_onehot.float())
 
     def set_actnorm_inited(self, inited=True):
         """

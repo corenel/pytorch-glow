@@ -27,11 +27,11 @@ n_train = 50000
 # epoch size for validating
 n_test = -1
 # mini-batch size for training
-n_batch_train = 64
+num_batch_train = 64
 # mini-batch size for validating
-n_batch_test = 50
+num_batch_test = 50
 # mini-batch size for data-dependent initialization
-n_batch_init = 256
+num_batch_init = 256
 
 # optimization method ['adam', 'adamax']
 optimizer = "adamax"

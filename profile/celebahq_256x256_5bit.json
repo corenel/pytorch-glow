@@ -9,7 +9,7 @@
   },
   "dataset": {
     "problem": "celeba",
-    "n_classes": 1,
+    "num_classes": 1,
     "argument": "standard",
     "fmap": 1,
     "pmap": 1
@@ -21,9 +21,9 @@
     "n_sample": 1,
     "interval_valid": 50,
     "interval_sample": 50,
-    "n_batch_train": 64,
-    "n_batch_test": 50,
-    "n_batch_init": 256,
+    "num_batch_train": 64,
+    "num_batch_test": 50,
+    "num_batch_init": 256,
     "optimizer": "adamax",
     "adam_beta_1": 0.9,
     "adam_eps": 1e-8,
