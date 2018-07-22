@@ -297,7 +297,7 @@ class FlowModel(nn.Module):
                 z, logdet = layer(z, logdet=0., reverse=True)
         return z, logdet
 
-    def forward(self, z, logdet=0., reverse=False, eps_std=None):
+    def forward(self, z, logdet=0., eps_std=None, reverse=False):
         """
         Forward flow model
 
@@ -305,10 +305,10 @@ class FlowModel(nn.Module):
         :type z: torch.Tensor
         :param logdet: log determinant
         :type logdet: torch.Tensor
-        :param reverse: whether to reverse flow
-        :type reverse: bool
         :param eps_std: standard deviation of eps
         :type eps_std: float
+        :param reverse: whether to reverse flow
+        :type reverse: bool
         :return: output tensor
         :rtype: torch.Tensor
         """
@@ -361,6 +361,14 @@ class Glow(nn.Module):
                                                           self.flow.output_shapes[-1][3]])))
 
     def prior(self, y_onehot=None):
+        """
+        Prior
+
+        :param y_onehot: one-hot vector of label
+        :type y_onehot: torch.Tensor
+        :return: hidden output
+        :rtype: torch.Tensor
+        """
         nc = self.h_top.shape[1]
         h = self.h_top.detach().clone()
         assert torch.sum(h) == 0.
@@ -372,6 +380,14 @@ class Glow(nn.Module):
         return ops.split_channel(h, 'simple')
 
     def preprocess(self, x):
+        """
+        Pre-process for input
+
+        :param x: input
+        :type x: torch.Tensor
+        :return: precessed input
+        :rtype: torch.Tensor
+        """
         n_bins = 2 ** self.hps.model.n_bits_x
         if self.hps.model.n_bits_x < 8:
             x = torch.floor(x / 2 ** (8 - self.hps.model.n_bits_x))
@@ -379,11 +395,27 @@ class Glow(nn.Module):
         return x
 
     def postprocess(self, x):
+        """
+        Pre-process for input
+
+        :param x: input
+        :type x: torch.Tensor
+        :return: precessed input
+        :rtype: torch.Tensor
+        """
         n_bins = 2 ** self.hps.model.n_bits_x
         x = torch.clamp(torch.floor((x + .5) * n_bins) * (256. / n_bins), min=0, max=255)
         return x
 
     def normal_flow(self, x, y_onehot):
+        """
+        Normal flow
+
+        :param x: input tensor
+        :type x: torch.Tensor
+        :param y_onehot: one-hot vector of label
+        :type y_onehot: torch.Tensor
+        """
         # Pre-process for z
         n_bins = 2 ** self.hps.model.n_bits_x
         z = self.preprocess(x)
@@ -415,6 +447,16 @@ class Glow(nn.Module):
         return z, nll, y_logits
 
     def reverse_flow(self, z, y_onehot, eps_std=None):
+        """
+        Reverse flow
+
+        :param z: latent vector
+        :type z: torch.Tensor
+        :param y_onehot: one-hot vector of label
+        :type y_onehot: torch.Tensor
+        :param eps_std: standard deviation of eps
+        :type eps_std: float
+        """
         with torch.no_grad():
             mean, logs = self.prior(y_onehot)
             if z is None:
@@ -427,6 +469,20 @@ class Glow(nn.Module):
                 x=None, y_onehot=None,
                 z=None, eps_std=None,
                 reverse=False):
+        """
+        Forward Glow model
+
+        :param x: input tensor
+        :type x: torch.Tensor
+        :param y_onehot: one-hot vector of label
+        :type y_onehot: torch.Tensor
+        :param z: latent vector
+        :type z: torch.Tensor
+        :param eps_std: standard deviation of eps
+        :type eps_std: float
+        :param reverse: whether to reverse flow
+        :type reverse: bool
+        """
         if not reverse:
             return self.normal_flow(x, y_onehot)
         else:
@@ -434,6 +490,14 @@ class Glow(nn.Module):
 
     @staticmethod
     def generative_loss(nll):
+        """
+        Loss for generation
+
+        :param nll: negative logistic likehood
+        :type nll: torch.Tensor
+        :return: generative loss
+        :rtype: torch.Tensor
+        """
         return torch.mean(nll)
 
     @staticmethod

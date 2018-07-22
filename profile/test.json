@@ -10,6 +10,7 @@
   },
   "dataset": {
     "problem": "celeba",
+    "root": "/Data/CelebA",
     "num_classes": 1,
     "num_workers": 8,
     "argument": "standard"
@@ -63,7 +64,9 @@
     "lu_decomposition": false,
     "seed": 0,
     "flow_permutation": "invconv",
-    "flow_coupling": "additive"
+    "flow_coupling": "additive",
+    "max_grad_clip": 5,
+    "max_grad_norm": 100
   },
   "device": {
     "graph": [

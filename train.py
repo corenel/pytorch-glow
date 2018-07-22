@@ -13,7 +13,7 @@ if __name__ == '__main__':
     builder = Builder(hps)
     state = builder.build()
     # load dataset
-    dataset = CelebA(root='/Data/CelebA',
+    dataset = CelebA(root=hps.dataset.root,
                      transform=transforms.Compose((
                          transforms.CenterCrop(160),
                          transforms.Resize(64),

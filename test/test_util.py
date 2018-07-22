@@ -29,7 +29,7 @@ class TestUtil(unittest.TestCase):
         result_dir = '/tmp'
         result_subdir = util.create_result_subdir(result_dir,
                                                   desc='test',
-                                                  profile_path='profile/test.json')
+                                                  profile={})
         util.locate_result_subdir(result_dir, result_subdir)
         util.locate_result_subdir(result_dir, 0)
         util.locate_result_subdir(result_dir, '000')

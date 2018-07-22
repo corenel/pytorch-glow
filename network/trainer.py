@@ -68,6 +68,8 @@ class Trainer:
         if self.y_condition:
             self.y_criterion = self.hps.ablation.y_criterion
             assert self.y_criterion in self.criterion_dict.keys(), "Unsupported criterion: {}".format(self.y_criterion)
+        self.max_grad_clip = self.hps.ablation.max_grad_clip
+        self.max_grad_norm = self.hps.ablation.max_grad_norm
         # logging
         self.writer = SummaryWriter(log_dir=self.result_subdir)
         self.interval_scalar = self.hps.optim.interval_scalar
@@ -90,7 +92,7 @@ class Trainer:
                 for param_group in self.optimizer.param_groups:
                     param_group['lr'] = lr
                 # self.optimizer.zero_grad()
-                if self.step % self.interval_scalar == 0:
+                if self.step % self.interval_scalar == 0 and self.step > 0:
                     self.writer.add_scalar('lr/lr', lr, self.step)
 
                 # extract batch data
@@ -129,7 +131,7 @@ class Trainer:
                     classification_loss = self.criterion_dict[self.y_criterion](y_logits,
                                                                                 y if self.y_criterion == 'single_class' else y_onehot)
                 loss = generative_loss + classification_loss * self.hps.model.weight_y
-                if self.step % self.interval_scalar == 0:
+                if self.step % self.interval_scalar == 0 and self.step > 0:
                     self.writer.add_scalar('loss/generative_loss', generative_loss, self.step)
                     if self.y_condition:
                         self.writer.add_scalar('loss/classification_loss', classification_loss, self.step)
@@ -138,6 +140,13 @@ class Trainer:
                 self.graph.zero_grad()
                 self.optimizer.zero_grad()
                 loss.backward()
+                # gradient operation
+                if self.max_grad_clip is not None and self.max_grad_clip > 0:
+                    torch.nn.utils.clip_grad_value_(self.graph.parameters(), self.max_grad_clip)
+                if self.max_grad_norm is not None and self.max_grad_norm > 0:
+                    grad_norm = torch.nn.utils.clip_grad_norm_(self.graph.parameters(), self.max_grad_norm)
+                    if self.step % self.interval_scalar == 0 and self.step > 0:
+                        self.writer.add_scalar("grad_norm/grad_norm", grad_norm, self.step)
 
                 # optimize
                 self.optimizer.step()
@@ -153,12 +162,22 @@ class Trainer:
                                     is_best=True)
 
                 # valid
-                if self.step % self.interval_valid == 0:
-                    pass
+                if self.step % self.interval_valid == 0 and self.step > 0:
+                    img = self.graph(z=z, y_onehot=y_onehot, reverse=True)
+                    if self.y_condition:
+                        pass
+                    for bi in range(min([len(img), 4])):
+                        self.writer.add_image("0_reverse/{}".format(bi),
+                                              torch.cat((img[bi], batch["x"][bi]), dim=1),
+                                              self.step)
+                        if self.y_condition:
+                            pass
 
                 # sample
-                if self.step % self.interval_sample == 0:
-                    pass
+                if self.step % self.interval_sample == 0 and self.step > 0:
+                    img = self.graph(z=None, y_onehot=y_onehot, eps_std=0.5, reverse=True)
+                    for bi in range(min([len(img), 4])):
+                        self.writer.add_image("2_sample/{}".format(bi), img[bi], self.step)
 
                 self.step += 1
 
