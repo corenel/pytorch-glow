@@ -24,7 +24,7 @@
     "interval_snapshot": 5000,
     "interval_valid": 50,
     "interval_sample": 50,
-    "num_batch_train": 16,
+    "num_batch_train": 32,
     "num_batch_test": 50,
     "num_batch_init": 256,
     "optimizer": "adamax",

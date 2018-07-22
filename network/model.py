@@ -463,7 +463,7 @@ class Glow(nn.Module):
                 z = module.GaussianDiag.sample(mean, logs, eps_std)
             x, det = self.flow(z, eps_std=eps_std, reverse=True)
             x = self.postprocess(x)
-            return x, det
+            return x
 
     def forward(self,
                 x=None, y_onehot=None,
