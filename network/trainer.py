@@ -65,8 +65,9 @@ class Trainer:
         self.num_epochs = (self.hps.optim.num_epochs + len(self.data_loader) - 1) // len(self.data_loader)
         # ablation
         self.y_condition = self.hps.ablation.y_condition
-        self.y_criterion = self.hps.ablation.y_criterion
-        assert self.y_criterion in self.criterion_dict.keys(), "Unsupported criterion: {}".format(self.y_criterion)
+        if self.y_condition:
+            self.y_criterion = self.hps.ablation.y_criterion
+            assert self.y_criterion in self.criterion_dict.keys(), "Unsupported criterion: {}".format(self.y_criterion)
         # logging
         self.writer = SummaryWriter(log_dir=self.result_subdir)
         self.interval_scalar = self.hps.optim.interval_scalar
@@ -85,7 +86,7 @@ class Trainer:
             progress = tqdm(self.data_loader)
             for idx, batch in enumerate(progress):
                 # update learning rate
-                lr = self.scheduler(self.step)
+                lr = self.scheduler(global_step=self.step)
                 for param_group in self.optimizer.param_groups:
                     param_group['lr'] = lr
                 # self.optimizer.zero_grad()
@@ -94,7 +95,7 @@ class Trainer:
 
                 # extract batch data
                 for i in batch:
-                    batch[i].to(self.data_device)
+                    batch[i] = batch[i].to(self.data_device)
                 x = batch['x']
                 y = None
                 y_onehot = None

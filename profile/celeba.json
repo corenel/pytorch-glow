@@ -1,9 +1,9 @@
 {
-  "profile": "celebahq_256x256_5bit",
+  "profile": "celeba_64x64_8bit",
   "general": {
     "verbose": false,
-    "result_dir": ".",
-    "warm_start": true,
+    "result_dir": "/Data/glow",
+    "warm_start": false,
     "pre_trained": "",
     "resume_run_id": 0,
     "resume_step": "latest"
@@ -71,7 +71,8 @@
       "cuda:1"
     ],
     "data": [
-      "cpu"
+      "cuda:0"
     ]
   }
 }
+

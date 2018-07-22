@@ -44,7 +44,7 @@ class Builder:
         result_subdir = None
         graph, optimizer, scheduler, criterion_dict = None, None, None, None
         devices = util.get_devices(self.hps.device.graph)
-        data_device = util.get_devices(self.hps.device.data)
+        data_device = util.get_devices(self.hps.device.data)[0]
 
         # build graph
         graph = model.Glow(self.hps)
@@ -74,6 +74,7 @@ class Builder:
             # # move graph to devices
             if 'cpu' in devices:
                 graph = graph.cpu()
+                data_device = 'cpu'
             else:
                 graph = graph.to(devices[0])
             print('Use {} for model running and {} for data loading'.format(devices[0], data_device))
@@ -85,10 +86,10 @@ class Builder:
             assert optimizer_name in self.optimizer_dict.keys(), \
                 "Unsupported optimizer: {}".format(optimizer_name)
             # If you need to move a model to GPU via .cuda(), please do so before constructing optimizers for it.
+            optimizer = self.optimizer_dict[optimizer_name](
+                graph.parameters(),
+                **self.hps.optim.optimizer_args)
             if state is not None:
-                optimizer = self.optimizer_dict[optimizer_name](graph.parameters(),
-                                                                **self.hps.optim.optimizer_args)
-
                 optimizer.load_state_dict(state['optimizer'])
             # get lr scheduler
             scheduler_name = self.hps.optim.lr_scheduler.lower()
