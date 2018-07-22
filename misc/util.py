@@ -367,3 +367,20 @@ def load_model(result_subdir, step_or_model_path, graph, optimizer=None, criteri
     print('Load model snapshot successfully from {}'.format(model_path))
 
     return state
+
+
+# Dataset
+
+def is_image(filepath):
+    """
+    Determine whether file is an image or not
+
+    :param filepath: file path
+    :type filepath: str
+    :return: whether file is an image
+    :rtype: bool
+    """
+    image_extensions = ['.png', '.jpg', '.jpeg']
+    basename = os.path.basename(filepath)
+    _, extension = os.path.splitext(basename)
+    return extension.lower() in image_extensions
