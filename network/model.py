@@ -379,33 +379,33 @@ class Glow(nn.Module):
             h += self.y_emb(y_onehot).view(-1, nc, 1, 1)
         return ops.split_channel(h, 'simple')
 
-    def preprocess(self, x):
-        """
-        Pre-process for input
-
-        :param x: input
-        :type x: torch.Tensor
-        :return: precessed input
-        :rtype: torch.Tensor
-        """
-        n_bins = 2 ** self.hps.model.n_bits_x
-        if self.hps.model.n_bits_x < 8:
-            x = torch.floor(x / 2 ** (8 - self.hps.model.n_bits_x))
-        x = x / n_bins - .5
-        return x
-
-    def postprocess(self, x):
-        """
-        Pre-process for input
-
-        :param x: input
-        :type x: torch.Tensor
-        :return: precessed input
-        :rtype: torch.Tensor
-        """
-        n_bins = 2 ** self.hps.model.n_bits_x
-        x = torch.clamp(torch.floor((x + .5) * n_bins) * (256. / n_bins), min=0, max=255)
-        return x
+    # def preprocess(self, x):
+    #     """
+    #     Pre-process for input
+    #
+    #     :param x: input
+    #     :type x: torch.Tensor
+    #     :return: precessed input
+    #     :rtype: torch.Tensor
+    #     """
+    #     n_bins = 2 ** self.hps.model.n_bits_x
+    #     if self.hps.model.n_bits_x < 8:
+    #         x = torch.floor(x / 2 ** (8 - self.hps.model.n_bits_x))
+    #     x = x / n_bins - .5
+    #     return x
+    #
+    # def postprocess(self, x):
+    #     """
+    #     Pre-process for input
+    #
+    #     :param x: input
+    #     :type x: torch.Tensor
+    #     :return: precessed input
+    #     :rtype: torch.Tensor
+    #     """
+    #     n_bins = 2 ** self.hps.model.n_bits_x
+    #     x = torch.clamp(torch.floor((x + .5) * n_bins) * (256. / n_bins), min=0, max=255)
+    #     return x
 
     def normal_flow(self, x, y_onehot):
         """
@@ -418,7 +418,8 @@ class Glow(nn.Module):
         """
         # Pre-process for z
         n_bins = 2 ** self.hps.model.n_bits_x
-        z = self.preprocess(x)
+        # z = self.preprocess(x)
+        z = x
         z = z + torch.nn.init.uniform_(torch.empty(*z.shape, device=z.device), 0, 1. / n_bins)
 
         # Initialize logdet
@@ -462,7 +463,7 @@ class Glow(nn.Module):
             if z is None:
                 z = module.GaussianDiag.sample(mean, logs, eps_std)
             x, det = self.flow(z, eps_std=eps_std, reverse=True)
-            x = self.postprocess(x)
+            # x = self.postprocess(x)
             return x
 
     def forward(self,
