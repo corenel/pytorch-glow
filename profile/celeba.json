@@ -29,7 +29,7 @@
     "num_batch_init": 256,
     "optimizer": "adamax",
     "optimizer_args": {
-      "lr": 1e-3,
+      "lr": 1e-4,
       "betas": [
         0.9,
         0.9999
@@ -39,8 +39,8 @@
     },
     "lr_scheduler": "noam",
     "lr_scheduler_args": {
-      "warmup_steps": 4000,
-      "min_lr": 1e-4
+      "warmup_steps": 10,
+      "min_lr": 1e-5
     },
     "gradient_checkpointing": true
   },

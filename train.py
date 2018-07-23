@@ -9,6 +9,7 @@ if __name__ == '__main__':
     util.init_output_logging()
     # load hyper-parameters
     hps = util.load_profile('profile/celeba.json')
+    util.manual_seed(hps.ablation.seed)
     # build graph
     builder = Builder(hps)
     state = builder.build()

@@ -384,3 +384,17 @@ def is_image(filepath):
     basename = os.path.basename(filepath)
     _, extension = os.path.splitext(basename)
     return extension.lower() in image_extensions
+
+
+# Misc
+
+def manual_seed(seed):
+    """
+    Set manual random seed
+
+    :param seed: random seed
+    :type seed: int
+    """
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    # torch.cuda.manual_seed_all(seed)
