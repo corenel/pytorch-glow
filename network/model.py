@@ -8,8 +8,8 @@ from misc import ops
 
 
 class FlowStep(nn.Module):
-    flow_permutation = ['invconv', 'reverse', 'shuffle']
-    flow_coupling = ['additive', 'affine']
+    flow_permutation_list = ['invconv', 'reverse', 'shuffle']
+    flow_coupling_list = ['additive', 'affine']
 
     def __init__(self,
                  in_channels,
@@ -56,8 +56,8 @@ class FlowStep(nn.Module):
         """
         super().__init__()
         # permutation and coupling
-        assert permutation in self.flow_permutation
-        assert coupling in self.flow_coupling
+        assert permutation in self.flow_permutation_list
+        assert coupling in self.flow_coupling_list
         self.permutation = permutation
         self.coupling = coupling
 
@@ -102,19 +102,17 @@ class FlowStep(nn.Module):
             z = self.shuffle(z, reverse=False)
 
         # flow coupling layer
-        nc = z.shape[1]
-        z1 = z[:, :nc // 2, :, :]
-        z2 = z[:, nc // 2:, :, :]
+        z1, z2 = ops.split_channel(z, 'simple')
         if self.coupling == 'additive':
             z2 += self.f(z1)
         else:
             h = self.f(z1)
-            shift = h[:, 0::2, :, :]
-            scale = F.sigmoid(h[:, 1::2, :, :] + 2.)
+            shift, scale = ops.split_channel(h, 'cross')
+            scale = F.sigmoid(scale + 2.)
             z2 += shift
             z2 *= scale
             logdet = ops.reduce_sum(torch.log(scale), dim=[1, 2, 3]) + logdet
-        z = torch.cat((z1, z2), dim=1)
+        z = ops.cat_channel(z1, z2)
 
         return z, logdet
 
@@ -130,19 +128,17 @@ class FlowStep(nn.Module):
         :rtype: tuple(torch.Tensor, torch.Tensor)
         """
         # flow coupling layer
-        nc = x.shape[1]
-        z1 = x[:, :nc // 2, :, :]
-        z2 = x[:, nc // 2:, :, :]
+        z1, z2 = ops.split_channel(x, 'simple')
         if self.coupling == 'additive':
             z2 -= self.f(z1)
         else:
             h = self.f(z1)
-            shift = h[:, 0::2, :, :]
-            scale = F.sigmoid(h[:, 1::2, :, :] + 2.)
+            shift, scale = ops.split_channel(h, 'cross')
+            scale = F.sigmoid(scale + 2.)
             z2 /= scale
             z2 -= shift
             logdet = -ops.reduce_sum(torch.log(scale), dim=[1, 2, 3]) + logdet
-        z = torch.cat((z1, z2), dim=1)
+        z = ops.cat_channel(z1, z2)
 
         # flow permutation layer
         if self.permutation == 'invconv':
@@ -295,7 +291,7 @@ class FlowModel(nn.Module):
                 z, logdet = layer(z, logdet=0., reverse=True, eps_std=eps_std)
             else:
                 z, logdet = layer(z, logdet=0., reverse=True)
-        return z, logdet
+        return z
 
     def forward(self, z, logdet=0., eps_std=None, reverse=False):
         """
@@ -462,7 +458,7 @@ class Glow(nn.Module):
             mean, logs = self.prior(y_onehot)
             if z is None:
                 z = module.GaussianDiag.sample(mean, logs, eps_std)
-            x, det = self.flow(z, eps_std=eps_std, reverse=True)
+            x = self.flow(z, eps_std=eps_std, reverse=True)
             # x = self.postprocess(x)
             return x
 

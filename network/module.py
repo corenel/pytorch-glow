@@ -505,8 +505,7 @@ class Split2d(nn.Module):
         :rtype: torch.Tensor
         """
         h = self.conv2d_zeros(z)
-        mean = h[:, 0::2, :, :]
-        logs = h[:, 1::2, :, :]
+        mean, logs = ops.split_channel(h, 'cross')
         return mean, logs
 
     def forward(self, x, logdet=None, reverse=False, eps_std=None):
@@ -526,8 +525,7 @@ class Split2d(nn.Module):
         """
         if not reverse:
             nc = x.shape[1]
-            z1 = x[:, :nc // 2, :, :]
-            z2 = x[:, nc // 2:, :, :]
+            z1, z2 = ops.split_channel(x, 'simple')
             mean, logs = self.prior(z1)
             logdet = GaussianDiag.logp(mean, logs, z2) + logdet
             return z1, logdet
@@ -535,7 +533,7 @@ class Split2d(nn.Module):
             z1 = x
             mean, logs = self.prior(z1)
             z2 = GaussianDiag.sample(mean, logs, eps_std)
-            z = torch.cat((z1, z2), dim=1)
+            z = ops.cat_channel(z1, z2)
             return z, logdet
 
 
