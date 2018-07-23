@@ -53,7 +53,7 @@ class Builder:
         # load model
         if graph is not None:
             # locate or create result subdir
-            if self.hps.general.resume_run_id != "":
+            if self.hps.general.warm_start and self.hps.general.resume_run_id != "":
                 result_subdir = util.locate_result_subdir(self.hps.general.result_dir,
                                                           self.hps.general.resume_run_id)
 

@@ -15,7 +15,7 @@ def constant(base_lr, global_step):
     return base_lr
 
 
-def noam_decay(base_lr, global_step, warmup_steps=4000):
+def noam_decay(base_lr, global_step, warmup_steps=4000, min_lr=1e-4):
     """
     Noam learning rate decay (from section 5.3 of Attention is all you need)
 
@@ -25,11 +25,15 @@ def noam_decay(base_lr, global_step, warmup_steps=4000):
     :type global_step: int
     :param warmup_steps: number of steps for warming up
     :type warmup_steps: int
+    :param min_lr: minimum learning rate
+    :type min_lr: float
     :return: scheduled learning rate
     :rtype: float
     """
     step_num = global_step + 1.
-    lr = base_lr * np.minimum(step_num ** -0.5, step_num * float(warmup_steps) ** -1.5)
+    lr = base_lr * warmup_steps ** 0.5 * np.minimum(step_num ** -0.5, step_num * float(warmup_steps) ** -1.5)
+    if global_step >= warmup_steps:
+        lr = max(min_lr, lr)
     return lr
 
 

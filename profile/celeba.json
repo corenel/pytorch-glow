@@ -5,7 +5,7 @@
     "result_dir": "/Data/glow",
     "warm_start": false,
     "pre_trained": "",
-    "resume_run_id": 0,
+    "resume_run_id": 1,
     "resume_step": "latest"
   },
   "dataset": {
@@ -32,14 +32,15 @@
       "lr": 1e-3,
       "betas": [
         0.9,
-        0.99
+        0.9999
       ],
       "eps": 1e-8,
       "weight_decay": 0
     },
     "lr_scheduler": "noam",
     "lr_scheduler_args": {
-      "warmup_steps": 4000
+      "warmup_steps": 4000,
+      "min_lr": 1e-4
     },
     "gradient_checkpointing": true
   },
@@ -64,7 +65,7 @@
     "lu_decomposition": false,
     "seed": 0,
     "flow_permutation": "invconv",
-    "flow_coupling": "additive",
+    "flow_coupling": "affine",
     "max_grad_clip": 5,
     "max_grad_norm": 100
   },
