@@ -37,7 +37,7 @@ def noam_decay(base_lr, global_step, warmup_steps=4000, min_lr=1e-4):
     return lr
 
 
-def linear_anneal(base_lr, global_step, n_train, warmup_steps=10):
+def linear_anneal(base_lr, global_step, num_train, warmup_steps=10):
     """
     Linearly annealed learning rate from 0 in the first warming up epochs.
 
@@ -45,14 +45,14 @@ def linear_anneal(base_lr, global_step, n_train, warmup_steps=10):
     :type base_lr: float
     :param global_step: global training steps
     :type global_step: int
-    :param n_train:
-    :type n_train:
+    :param num_train:
+    :type num_train:
     :param warmup_steps: number of steps for warming up
     :type warmup_steps: int
     :return: scheduled learning rate
     :rtype: float
     """
-    lr = base_lr * np.minimum(1., global_step / (n_train * warmup_steps))
+    lr = base_lr * np.minimum(1., global_step / (num_train * warmup_steps))
     return lr
 
 

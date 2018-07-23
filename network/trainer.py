@@ -76,6 +76,7 @@ class Trainer:
         self.interval_snapshot = self.hps.optim.interval_snapshot
         self.interval_valid = self.hps.optim.interval_valid
         self.interval_sample = self.hps.optim.interval_sample
+        self.num_sample = self.hps.optim.num_sample
 
     def train(self):
         """
@@ -157,27 +158,23 @@ class Trainer:
                                     step=self.step,
                                     graph=self.graph,
                                     optimizer=self.optimizer,
-                                    criterion_dict=None,
                                     seconds=time.time() - self.start_time,
                                     is_best=True)
 
                 # valid
                 if self.step % self.interval_valid == 0 and self.step > 0:
                     img = self.graph(z=z, y_onehot=y_onehot, reverse=True)
-                    if self.y_condition:
-                        pass
-                    for bi in range(min([len(img), 4])):
-                        self.writer.add_image("0_reverse/{}".format(bi),
-                                              torch.cat((img[bi], batch["x"][bi]), dim=1),
+                    for i in range(min(self.num_sample, img.shape[0])):
+                        self.writer.add_image("reconstructed/{}".format(i),
+                                              ops.cat_channel(img[i], batch["x"][i]),
                                               self.step)
-                        if self.y_condition:
-                            pass
 
                 # sample
                 if self.step % self.interval_sample == 0 and self.step > 0:
                     img = self.graph(z=None, y_onehot=y_onehot, eps_std=0.5, reverse=True)
-                    for bi in range(min([len(img), 4])):
-                        self.writer.add_image("2_sample/{}".format(bi), img[bi], self.step)
+                    for i in range(min(self.num_sample, img.shape[0])):
+                        self.writer.add_image("sample/{}".format(i),
+                                              img[i], self.step)
 
                 self.step += 1
 

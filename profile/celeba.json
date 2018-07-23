@@ -17,9 +17,9 @@
   },
   "optim": {
     "num_epochs": 1000000,
-    "n_train": 50000,
-    "n_test": -1,
-    "n_sample": 1,
+    "num_train": 50000,
+    "num_test": -1,
+    "num_sample": 4,
     "interval_scalar": 50,
     "interval_snapshot": 5000,
     "interval_valid": 50,

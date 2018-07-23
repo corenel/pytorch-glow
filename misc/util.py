@@ -281,7 +281,7 @@ def get_last_model_name(result_subdir):
     return get_model_name(latest)
 
 
-def save_model(result_subdir, step, graph, optimizer, criterion_dict, seconds, is_best):
+def save_model(result_subdir, step, graph, optimizer, seconds, is_best, criterion_dict=None):
     """
     Save model snapshot to result subdir
 
@@ -293,12 +293,12 @@ def save_model(result_subdir, step, graph, optimizer, criterion_dict, seconds, i
     :type graph: torch.nn.Module
     :param optimizer: optimizer
     :type optimizer: torch.optim.Optimizer
-    :param criterion_dict: dict of criterion
-    :type criterion_dict: dict
     :param seconds: seconds of running time
     :type seconds: float
     :param is_best: whether this model is best
     :type is_best: bool
+    :param criterion_dict: dict of criterion
+    :type criterion_dict: dict
     """
     # construct state
     state = {
