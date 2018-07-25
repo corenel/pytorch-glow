@@ -70,16 +70,16 @@ class ActNorm(nn.Module):
         logs = self.logs * self.logscale_factor
 
         if not reverse:
-            x = x * torch.exp(logs)
+            x *= torch.exp(logs)
         else:
-            x = x * torch.exp(-logs)
+            x *= torch.exp(-logs)
 
         if logdet is not None:
-            logdet_factor = int(x.shape[2]) * int(x.shape[3])  # H * W
+            logdet_factor = ops.count_pixels(x)  # H * W
             dlogdet = torch.sum(logs) * logdet_factor
             if reverse:
                 dlogdet *= -1
-            logdet = dlogdet + logdet
+            logdet += dlogdet
 
         return x, logdet
 
@@ -140,12 +140,12 @@ class ActNorm(nn.Module):
 
         if not reverse:
             # center and scale
-            x = self.actnorm_center(x, reverse)
-            x, logdet = self.actnorm_scale(x, logdet, reverse)
+            x = self.actnorm_center(x, reverse=False)
+            x, logdet = self.actnorm_scale(x, logdet, reverse=False)
         else:
             # scale and center
-            x, logdet = self.actnorm_scale(x, logdet, reverse)
-            x = self.actnorm_center(x, reverse)
+            x, logdet = self.actnorm_scale(x, logdet, reverse=True)
+            x = self.actnorm_center(x, reverse=True)
         return x, logdet
 
 
@@ -250,11 +250,11 @@ class Conv2d(nn.Conv2d):
         :rtype: torch.Tensor
         """
         x = super().forward(x)
-        if self.do_weight_norm:
-            # normalize N, H and W dims
-            F.normalize(x, p=2, dim=0)
-            F.normalize(x, p=2, dim=2)
-            F.normalize(x, p=2, dim=3)
+        # if self.do_weight_norm:
+        #     # normalize N, H and W dims
+        #     F.normalize(x, p=2, dim=0)
+        #     F.normalize(x, p=2, dim=2)
+        #     F.normalize(x, p=2, dim=3)
         if self.do_actnorm:
             x, _ = self.actnorm(x)
         return x
@@ -353,19 +353,19 @@ class Invertible1x1Conv(nn.Module):
         :return: output and logdet
         :rtype: tuple(torch.Tensor, torch.Tensor)
         """
-        logdet_factor = x.shape[1] * x.shape[2]  # H * W
+        logdet_factor = ops.count_pixels(x)  # H * W
         dlogdet = torch.log(torch.abs(torch.det(self.weight))) * logdet_factor
         if not reverse:
             weight = self.weight.view(*self.weight.shape, 1, 1)
             z = F.conv2d(x, weight)
             if logdet is not None:
-                logdet = dlogdet + logdet
+                logdet = logdet + dlogdet
             return z, logdet
         else:
             weight = self.weight.inverse().view(*self.weight.shape, 1, 1)
             z = F.conv2d(x, weight)
             if logdet is not None:
-                logdet -= dlogdet
+                logdet = logdet - dlogdet
             return z, logdet
 
 
@@ -447,7 +447,7 @@ class GaussianDiag:
         :return: likehood
         :rtype: torch.Tensor
         """
-        return -0.5 * (GaussianDiag.log_2pi + 2. * logs + (x - mean) ** 2 / torch.exp(2. * logs))
+        return -0.5 * (GaussianDiag.log_2pi + 2. * logs + ((x - mean) ** 2) / torch.exp(2. * logs))
 
     @staticmethod
     def logp(mean, logs, x):
@@ -508,14 +508,14 @@ class Split2d(nn.Module):
         mean, logs = ops.split_channel(h, 'cross')
         return mean, logs
 
-    def forward(self, x, logdet=None, reverse=False, eps_std=None):
+    def forward(self, x, logdet=0., reverse=False, eps_std=None):
         """
         Forward Split2d layer
 
         :param x: input tensor
         :type x: torch.Tensor
         :param logdet: log determinant
-        :type logdet:
+        :type logdet: float
         :param reverse: whether to reverse flow
         :type reverse: bool
         :param eps_std: standard deviation of eps
@@ -524,7 +524,6 @@ class Split2d(nn.Module):
         :rtype: tuple(torch.Tensor, torch.Tensor)
         """
         if not reverse:
-            nc = x.shape[1]
             z1, z2 = ops.split_channel(x, 'simple')
             mean, logs = self.prior(z1)
             logdet = GaussianDiag.logp(mean, logs, z2) + logdet
@@ -563,13 +562,11 @@ class Squeeze2d(nn.Module):
         assert factor >= 1
         if factor == 1:
             return x
-        nc = x.shape[1]
-        nh = x.shape[2]
-        nw = x.shape[3]
-        assert nc >= 4 and nc % 4 == 0
-        x = x.view(-1, int(nc / factor ** 2), factor, factor, nh, nw)
+        _, nc, nh, nw = x.shape
+        assert nc >= factor ** 2 and nc % factor ** 2 == 0
+        x = x.view(-1, nc // factor ** 2, factor, factor, nh, nw)
         x = x.permute(0, 1, 4, 2, 5, 3).contiguous()
-        x = x.view(-1, int(nc / factor ** 2), int(nh * factor), int(nw * factor))
+        x = x.view(-1, nc // factor ** 2, nh * factor, nw * factor)
         return x
 
     @staticmethod
@@ -587,12 +584,10 @@ class Squeeze2d(nn.Module):
         assert factor >= 1
         if factor == 1:
             return x
-        nc = x.shape[1]
-        nh = x.shape[2]
-        nw = x.shape[3]
+        _, nc, nh, nw = x.shape
         assert nh % factor == 0 and nw % factor == 0
         x = x.view(-1, nc, nh // factor, factor, nw // factor, factor)
-        x = x.permute([0, 1, 3, 5, 2, 4]).contiguous()
+        x = x.permute(0, 1, 3, 5, 2, 4).contiguous()
         x = x.view(-1, nc * factor * factor, nh // factor, nw // factor)
         return x
 

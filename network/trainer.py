@@ -1,10 +1,8 @@
-import re
 import os
 import time
-from tqdm import tqdm
 import torch
-import torch.nn.functional as F
 
+from tqdm import tqdm
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 
@@ -92,7 +90,7 @@ class Trainer:
                 lr = self.scheduler(global_step=self.step)
                 for param_group in self.optimizer.param_groups:
                     param_group['lr'] = lr
-                # self.optimizer.zero_grad()
+                self.optimizer.zero_grad()
                 if self.step % self.interval_scalar == 0 and self.step > 0:
                     self.writer.add_scalar('lr/lr', lr, self.step)
 

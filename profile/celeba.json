@@ -20,16 +20,16 @@
     "num_train": 50000,
     "num_test": -1,
     "num_sample": 4,
-    "interval_scalar": 50,
-    "interval_snapshot": 5000,
-    "interval_valid": 50,
-    "interval_sample": 50,
-    "num_batch_train": 32,
+    "interval_scalar": 10,
+    "interval_snapshot": 1000,
+    "interval_valid": 10,
+    "interval_sample": 10,
+    "num_batch_train": 50,
     "num_batch_test": 50,
     "num_batch_init": 256,
-    "optimizer": "adamax",
+    "optimizer": "adam",
     "optimizer_args": {
-      "lr": 1e-4,
+      "lr": 1e-3,
       "betas": [
         0.9,
         0.9999
@@ -39,8 +39,8 @@
     },
     "lr_scheduler": "noam",
     "lr_scheduler_args": {
-      "warmup_steps": 10,
-      "min_lr": 1e-5
+      "warmup_steps": 1000,
+      "min_lr": 1e-4
     },
     "gradient_checkpointing": true
   },
@@ -63,7 +63,7 @@
     "y_condition": false,
     "y_criterion": "multi_classes",
     "lu_decomposition": false,
-    "seed": 0,
+    "seed": 2384,
     "flow_permutation": "invconv",
     "flow_coupling": "affine",
     "max_grad_clip": 5,

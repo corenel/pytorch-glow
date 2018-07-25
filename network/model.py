@@ -56,8 +56,8 @@ class FlowStep(nn.Module):
         """
         super().__init__()
         # permutation and coupling
-        assert permutation in self.flow_permutation_list
-        assert coupling in self.flow_coupling_list
+        assert permutation in self.flow_permutation_list, 'Unsupported flow permutation: {}'.format(permutation)
+        assert coupling in self.flow_coupling_list, 'Unsupported flow coupling: {}'.format(coupling)
         self.permutation = permutation
         self.coupling = coupling
 
@@ -415,11 +415,11 @@ class Glow(nn.Module):
         # Pre-process for z
         n_bins = 2 ** self.hps.model.n_bits_x
         # z = self.preprocess(x)
-        z = x
-        z = z + torch.nn.init.uniform_(torch.empty(*z.shape, device=z.device), 0, 1. / n_bins)
+        # z = z + torch.nn.init.uniform_(torch.empty(*z.shape, device=z.device), 0, 1. / n_bins)
+        z = x + module.GaussianDiag.eps(x, eps_std=1. / n_bins)
 
         # Initialize logdet
-        logdet_factor = z.shape[1] * z.shape[2]  # H * W
+        logdet_factor = ops.count_pixels(x)  # H * W
         objective = torch.zeros_like(x[:, 0, 0, 0])
         objective += float(-np.log(n_bins)) * logdet_factor
 
@@ -440,7 +440,7 @@ class Glow(nn.Module):
         # Generative loss
         nobj = -objective
         # negative log-likelihood
-        nll = nobj / float(np.log(2.) * x.shape[2] * x.shape[3])
+        nll = nobj / float(np.log(2.) * logdet_factor)
         return z, nll, y_logits
 
     def reverse_flow(self, z, y_onehot, eps_std=None):
@@ -538,4 +538,5 @@ class Glow(nn.Module):
         """
         for name, m in self.named_modules():
             if m.__class__.__name__.find("ActNorm") >= 0:
-                m.inited = inited
+                m.bias_inited = inited
+                m.logs_inited = inited
