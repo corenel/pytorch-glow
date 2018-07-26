@@ -5,11 +5,12 @@ from .module import (ActNorm, LinearZeros, Conv2d, Conv2dZeros,
 
 from .builder import Builder
 from .trainer import Trainer
+from .inferer import Inferer
 
 __all__ = (
     FlowStep, FlowModel, Glow,
     ActNorm, LinearZeros, Conv2d, Conv2dZeros,
     f, Invertible1x1Conv, Permutation2d, GaussianDiag,
     Split2d, Squeeze2d,
-    Builder, Trainer
+    Builder, Trainer, Inferer
 )

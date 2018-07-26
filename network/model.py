@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from network import module
-from misc import ops
+from misc import ops, util
 
 
 class FlowStep(nn.Module):
@@ -348,7 +348,7 @@ class Glow(nn.Module):
             self.classifier = module.LinearZeros(nc, hps.dataset.num_classes)
 
         # TODO get number of deivce from config
-        num_device = torch.cuda.device_count()
+        num_device = len(util.get_devices(self.hps.device.graph, verbose=False))
         assert hps.optim.num_batch_train % num_device == 0
         self.register_parameter('h_top',
                                 nn.Parameter(torch.zeros([hps.optim.num_batch_train // num_device,

@@ -73,6 +73,5 @@ class TestModel(unittest.TestCase):
         # self.assertEqual(x.shape, x_.shape)
         # self.assertTupleEqual((2, 48, 2, 2), tuple(y.shape))
 
-
 if __name__ == '__main__':
     unittest.main()

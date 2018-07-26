@@ -57,7 +57,7 @@ class Builder:
                 result_subdir = util.locate_result_subdir(self.hps.general.result_dir,
                                                           self.hps.general.resume_run_id)
 
-            if result_subdir is None:
+            if training and result_subdir is None:
                 result_subdir = util.create_result_subdir(self.hps.general.result_dir,
                                                           desc=self.hps.profile,
                                                           profile=self.hps)
@@ -71,7 +71,9 @@ class Builder:
                 if step_or_model_path is not None:
                     state = util.load_model(result_subdir, step_or_model_path, graph,
                                             device=devices[0])
-            # # move graph to devices
+                if not training and state is None:
+                    raise RuntimeError('No pre-trained model for inference')
+            # move graph to devices
             if 'cpu' in devices:
                 graph = graph.cpu()
                 data_device = 'cpu'

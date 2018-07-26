@@ -10,6 +10,11 @@ import torch
 from easydict import EasyDict
 
 
+def _print(*args, verbose=True, **kwargs):
+    if verbose:
+        print(*args, **kwargs)
+
+
 # Profile
 
 def load_profile(filepath):
@@ -28,12 +33,14 @@ def load_profile(filepath):
 
 # Device
 
-def get_devices(devices):
+def get_devices(devices, verbose=True):
     """
     Get devices for running model
 
     :param devices: list of devices from profile
     :type devices: list
+    :param verbose: print log
+    :type verbose: bool
     :return: list of usable devices according to desired and available hardware
     :rtype: list[str]
     """
@@ -53,7 +60,7 @@ def get_devices(devices):
         if isinstance(device, int):
             if 0 <= device <= torch.cuda.device_count() - 1:
                 return device
-        print('Incorrect device "{}"'.format(origin))
+        _print('Incorrect device "{}"'.format(origin), verbose=verbose)
         return
 
     use_cpu = any([d.find('cpu') >= 0 for d in devices])
@@ -64,7 +71,7 @@ def get_devices(devices):
         devices = [parse_cuda_device(d) for d in devices]
         devices = [d for d in devices if d is not None]
         if len(devices) == 0:
-            print('No available GPU found, use CPU only')
+            _print('No available GPU found, use CPU only', verbose=verbose)
             devices = ['cpu']
 
     return devices
@@ -355,6 +362,8 @@ def load_model(result_subdir, step_or_model_path, graph, optimizer=None, criteri
             raise FileNotFoundError('Failed to find model snapshot with {}'.format(step_or_model_path))
 
     # load model snapshot
+    if isinstance(device, int):
+        device = 'cuda:{}'.format(device)
     state = torch.load(model_path, map_location=device)
     step = state['step']
     graph.load_state_dict(state['graph'])
