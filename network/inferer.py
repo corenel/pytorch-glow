@@ -1,8 +1,10 @@
 import os
 import time
+import numpy as np
 import torch
 
 from torchvision import transforms
+from torchvision.utils import make_grid
 
 from misc import util, ops
 from network.model import Glow
@@ -47,8 +49,15 @@ class Inferer:
         :return: generated image
         :rtype: np.ndarray
         """
+        # generate sample from model
         img = self.graph(z=z, y_onehot=y_onehot, eps_std=eps_std, reverse=True)
-        print(img[0])
-        grid = util.create_image_grid(img.permute(0, 2, 3, 1).cpu().numpy())
 
-        return grid
+        # create image grid
+        grid = make_grid(img)
+
+        # convert to numpy
+        grid_np = grid.permute(1, 2, 0).cpu().numpy()
+        grid_np = grid_np.astype(np.float32)
+        grid_np = (grid_np * 255).astype(np.uint8)
+
+        return grid_np
