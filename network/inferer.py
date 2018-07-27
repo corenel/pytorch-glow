@@ -48,7 +48,7 @@ class Inferer:
         :rtype: np.ndarray
         """
         img = self.graph(z=z, y_onehot=y_onehot, eps_std=eps_std, reverse=True)
-        img = img[0].cpu()
-        img = transforms.ToPILImage()(img)
+        print(img[0])
+        grid = util.create_image_grid(img.permute(0, 2, 3, 1).cpu().numpy())
 
-        return img
+        return grid

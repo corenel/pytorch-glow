@@ -407,3 +407,32 @@ def manual_seed(seed):
     np.random.seed(seed)
     torch.manual_seed(seed)
     # torch.cuda.manual_seed_all(seed)
+
+
+def create_image_grid(images, grid_size=None):
+    """
+    Create a image grid with given images
+    :param images: some images in shape of (N, H, W, C)
+    :type images: np.ndarray
+    :param grid_size: grid size like (grid_w, grid_h)
+    :type grid_size: tuple
+    :return: image grid
+    :rtype: np.ndarray
+    """
+    assert len(images.shape) == 4
+    num, img_c, img_w, img_h = images.shape[0], images.shape[3], images.shape[2], images.shape[1]
+
+    if grid_size is not None:
+        grid_w, grid_h = tuple(grid_size)
+    else:
+        grid_w = max(int(np.ceil(np.sqrt(num))), 1)
+        grid_h = max((num - 1) // grid_w + 1, 1)
+
+    print(grid_w, grid_h)
+
+    grid = np.zeros([grid_h * img_h, grid_w * img_w, img_c], dtype=images.dtype)
+    for idx in range(num):
+        x = (idx % grid_w) * img_w
+        y = (idx // grid_w) * img_h
+        grid[y: y + img_h, x: x + img_w, ...] = images[idx]
+    return grid

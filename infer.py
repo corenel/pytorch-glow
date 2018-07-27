@@ -48,5 +48,6 @@ if __name__ == '__main__':
         devices=state['devices'],
         data_device=state['data_device']
     )
-    img = inferer.sample(z=None, y_onehot=None, eps_std=0.1)
-    img.show()
+    img = inferer.sample(z=None, y_onehot=None, eps_std=0.5)
+    img = Image.fromarray(img, 'RGB')
+    img.save('sample.png')

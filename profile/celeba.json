@@ -21,7 +21,7 @@
     "num_test": -1,
     "num_sample": 4,
     "interval_scalar": 10,
-    "interval_snapshot": 1000,
+    "interval_snapshot": 5000,
     "interval_valid": 10,
     "interval_sample": 10,
     "num_batch_train": 50,
@@ -39,7 +39,7 @@
     },
     "lr_scheduler": "noam",
     "lr_scheduler_args": {
-      "warmup_steps": 1000,
+      "warmup_steps": 4000,
       "min_lr": 1e-4
     },
     "gradient_checkpointing": true

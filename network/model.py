@@ -415,8 +415,8 @@ class Glow(nn.Module):
         # Pre-process for z
         n_bins = 2 ** self.hps.model.n_bits_x
         # z = self.preprocess(x)
-        # z = z + torch.nn.init.uniform_(torch.empty(*z.shape, device=z.device), 0, 1. / n_bins)
-        z = x + module.GaussianDiag.eps(x, eps_std=1. / n_bins)
+        z = x + torch.nn.init.uniform_(torch.empty(*x.shape, device=x.device), 0, 1. / n_bins)
+        # z = x + module.GaussianDiag.eps(x, eps_std=1. / n_bins)
 
         # Initialize logdet
         logdet_factor = ops.count_pixels(x)  # H * W
