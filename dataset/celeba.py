@@ -66,8 +66,8 @@ class CelebA(Dataset):
                         'path': image_path,
                         'attr': image_onehot
                     })
-        print('CelebA dataset: Expect {} images with {} attributes.'.format(num_images, len(attrs)))
-        print('CelebA dataset: Find {} images with {} attributes.'.format(len(data), len(data[-1]['attr'])))
+        print('[Dataset] CelebA: Expect {} images with {} attributes.'.format(num_images, len(attrs)))
+        print('[Dataset] CelebA: Find {} images with {} attributes.'.format(len(data), len(data[-1]['attr'])))
 
         return data, attrs
 

@@ -3,9 +3,11 @@ import signal
 import argparse
 
 from PIL import Image
+from torchvision import transforms
 
 from misc import util
 from network import Builder, Inferer
+from dataset import CelebA
 
 
 def parse_args():
@@ -41,6 +43,14 @@ if __name__ == '__main__':
     builder = Builder(hps)
     state = builder.build(training=False)
 
+    # load dataset
+    dataset = CelebA(root=hps.dataset.root,
+                     transform=transforms.Compose((
+                         transforms.CenterCrop(160),
+                         transforms.Resize(64),
+                         transforms.ToTensor()
+                     )))
+
     # start inference
     inferer = Inferer(
         hps=hps,
@@ -48,6 +58,8 @@ if __name__ == '__main__':
         devices=state['devices'],
         data_device=state['data_device']
     )
-    img = inferer.sample(z=None, y_onehot=None, eps_std=0.5)
-    img = Image.fromarray(img, 'RGB')
-    img.save('sample.png')
+    # img = inferer.sample(z=None, y_onehot=None, eps_std=0.5)
+    # img = Image.fromarray(img, 'RGB')
+    # img.save('sample.png')
+    deltaz = inferer.compute_attribute_delta(dataset)
+    util.save_deltaz(deltaz, '.')

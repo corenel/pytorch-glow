@@ -11,7 +11,7 @@
   "dataset": {
     "problem": "celeba",
     "root": "/Data/CelebA",
-    "num_classes": 1,
+    "num_classes": 40,
     "num_workers": 8,
     "argument": "standard"
   },

@@ -10,11 +10,6 @@ import torch
 from easydict import EasyDict
 
 
-def _print(*args, verbose=True, **kwargs):
-    if verbose:
-        print(*args, **kwargs)
-
-
 # Profile
 
 def load_profile(filepath):
@@ -60,7 +55,7 @@ def get_devices(devices, verbose=True):
         if isinstance(device, int):
             if 0 <= device <= torch.cuda.device_count() - 1:
                 return device
-        _print('Incorrect device "{}"'.format(origin), verbose=verbose)
+        _print('[Builder] Incorrect device "{}"'.format(origin), verbose=verbose)
         return
 
     use_cpu = any([d.find('cpu') >= 0 for d in devices])
@@ -71,7 +66,7 @@ def get_devices(devices, verbose=True):
         devices = [parse_cuda_device(d) for d in devices]
         devices = [d for d in devices if d is not None]
         if len(devices) == 0:
-            _print('No available GPU found, use CPU only', verbose=verbose)
+            _print('[Builder] No available GPU found, use CPU only', verbose=verbose)
             devices = ['cpu']
 
     return devices
@@ -180,7 +175,7 @@ def create_result_subdir(result_dir, desc, profile):
     if not os.path.exists(result_subdir):
         os.makedirs(result_subdir)
     set_output_log_file(os.path.join(result_subdir, 'log.txt'))
-    print("Saving results to {}".format(result_subdir))
+    print("[Builder] Saving results to {}".format(result_subdir))
 
     # export profile
     with open(os.path.join(result_subdir, 'config.json'), 'w') as f:
@@ -220,7 +215,7 @@ def locate_result_subdir(result_dir, run_id_or_result_subdir):
         dirs = [d for d in dirs if os.path.isdir(d)]
         if len(dirs) == 1:
             return dirs[0]
-    print('Cannot locate result subdir for run: {}'.format(run_id_or_result_subdir))
+    print('[Builder] Cannot locate result subdir for run: {}'.format(run_id_or_result_subdir))
     return None
 
 
@@ -373,7 +368,7 @@ def load_model(result_subdir, step_or_model_path, graph, optimizer=None, criteri
     if criterion_dict is not None:
         for k in criterion_dict.keys():
             criterion_dict[k].load_state_dict(state['criterion'][k])
-    print('Load model snapshot successfully from {}'.format(model_path))
+    print('[Builder] Load model snapshot successfully from {}'.format(model_path))
 
     return state
 
@@ -395,6 +390,16 @@ def is_image(filepath):
     return extension.lower() in image_extensions
 
 
+def save_deltaz(deltaz, save_dir):
+    check_path(save_dir)
+    np.savez_compressed(os.path.join(save_dir, 'deltaz.npz'), deltaz)
+
+
+def load_deltaz(path):
+    if os.path.exists(path):
+        return np.load(path)
+
+
 # Misc
 
 def manual_seed(seed):
@@ -409,30 +414,11 @@ def manual_seed(seed):
     # torch.cuda.manual_seed_all(seed)
 
 
-def create_image_grid(images, grid_size=None):
-    """
-    Create a image grid with given images
-    :param images: some images in shape of (N, H, W, C)
-    :type images: np.ndarray
-    :param grid_size: grid size like (grid_w, grid_h)
-    :type grid_size: tuple
-    :return: image grid
-    :rtype: np.ndarray
-    """
-    assert len(images.shape) == 4
-    num, img_c, img_w, img_h = images.shape[0], images.shape[3], images.shape[2], images.shape[1]
+def _print(*args, verbose=True, **kwargs):
+    if verbose:
+        print(*args, **kwargs)
 
-    if grid_size is not None:
-        grid_w, grid_h = tuple(grid_size)
-    else:
-        grid_w = max(int(np.ceil(np.sqrt(num))), 1)
-        grid_h = max((num - 1) // grid_w + 1, 1)
 
-    print(grid_w, grid_h)
-
-    grid = np.zeros([grid_h * img_h, grid_w * img_w, img_c], dtype=images.dtype)
-    for idx in range(num):
-        x = (idx % grid_w) * img_w
-        y = (idx // grid_w) * img_h
-        grid[y: y + img_h, x: x + img_w, ...] = images[idx]
-    return grid
+def check_path(path):
+    if not os.path.exists(path):
+        os.makedirs(path)

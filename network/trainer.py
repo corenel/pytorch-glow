@@ -55,8 +55,7 @@ class Trainer:
         self.data_device = data_device
         self.batch_size = self.hps.optim.num_batch_train
         self.num_classes = self.hps.dataset.num_classes
-        self.data_loader = DataLoader(dataset,
-                                      batch_size=self.batch_size,
+        self.data_loader = DataLoader(dataset, batch_size=self.batch_size,
                                       num_workers=self.hps.dataset.num_workers,
                                       shuffle=True,
                                       drop_last=True)
@@ -83,7 +82,7 @@ class Trainer:
         self.graph.train()
 
         for epoch in range(self.num_epochs):
-            print('Epoch ({}/{})'.format(epoch, self.num_epochs))
+            print('[Trainer] Epoch ({}/{})'.format(epoch, self.num_epochs))
             progress = tqdm(self.data_loader)
             for idx, batch in enumerate(progress):
                 # update learning rate

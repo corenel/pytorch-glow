@@ -347,7 +347,6 @@ class Glow(nn.Module):
             self.y_emb = module.LinearZeros(hps.dataset.num_classes, nc * 2)
             self.classifier = module.LinearZeros(nc, hps.dataset.num_classes)
 
-        # TODO get number of deivce from config
         num_device = len(util.get_devices(self.hps.device.graph, verbose=False))
         assert hps.optim.num_batch_train % num_device == 0
         self.register_parameter('h_top',
@@ -355,6 +354,10 @@ class Glow(nn.Module):
                                                           self.flow.output_shapes[-1][1] * 2,
                                                           self.flow.output_shapes[-1][2],
                                                           self.flow.output_shapes[-1][3]])))
+
+    @property
+    def batch_h_top(self):
+        return self.h_top.shape[0]
 
     def prior(self, y_onehot=None):
         """

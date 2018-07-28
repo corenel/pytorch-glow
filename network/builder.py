@@ -79,7 +79,7 @@ class Builder:
                 data_device = 'cpu'
             else:
                 graph = graph.to(devices[0])
-            print('Use {} for model running and {} for data loading'.format(devices[0], data_device))
+            print('[Builder] Use {} for model running and {} for data loading'.format(devices[0], data_device))
 
         # setup optimizer and lr scheduler
         if training and graph is not None:
