@@ -1,4 +1,4 @@
-import cv2
+import os
 import sys
 import signal
 import argparse
@@ -16,10 +16,10 @@ from dataset import CelebA
 def parse_args():
     parser = argparse.ArgumentParser(
         'PyTorch implementation of "Glow: Generative Flow with Invertible 1x1 Convolutions"')
-    parser.add_argument('--profile', '-p', type=str,
+    parser.add_argument('profile', type=str,
                         default='profile/celeba.json',
                         help='path to profile file')
-    parser.add_argument('--weights', '-w', type=str,
+    parser.add_argument('weights', type=str,
                         default=None,
                         help='path to pre-trained weights')
     parser.add_argument('--delta', '-d', type=str,
@@ -74,11 +74,20 @@ if __name__ == '__main__':
     # deltaz = inferer.compute_attribute_delta(dataset)
     # util.save_deltaz(deltaz, '.')
 
-    # 2. encode & decode
-    # img = Image.open('misc/test_celeba.png').convert('RGB')
-    # z = inferer.encode(img)
-    # img = util.tensor_to_pil(inferer.decode(z))
-    # img.save('reconstructed.png')
+    # 2. reconstruct
+    img_list = ['misc/test.png', 'misc/test_celeba.png']
+    img_grid_list = []
+    util.check_path('reconstructed')
+    for img_path in img_list:
+        img = Image.open(img_path).convert('RGB')
+        x = util.pil_to_tensor(img)
+        z = inferer.encode(img)
+        x_ = inferer.decode(z)
+        img_grid = torch.cat((x, x_.cpu()), dim=1)
+        img_grid_list.append(img_grid)
+        # util.tensor_to_pil(img_grid).save('reconstructed/{}'.format(os.path.basename(img_path)))
+    imgs_grid = make_grid(torch.stack(img_grid_list))
+    util.tensor_to_pil(imgs_grid).save('reconstructed/grid.png')
 
     # 3. apply delta
     # img = Image.open('misc/test_celeba.png').convert('RGB')
@@ -90,22 +99,22 @@ if __name__ == '__main__':
     # img_interpolated.save('interpolated.png')
 
     # 4. batch apply
-    interpolation_vector = util.make_interpolation_vector(hps.dataset.num_classes)
-    img = Image.open('misc/test_celeba.png').convert('RGB')
-    deltaz = util.load_deltaz('deltaz.npy')
-    util.check_path('interpolation')
-    for cls in range(interpolation_vector.shape[0]):
-        imgs_interpolated = []
-        for lv in range(interpolation_vector.shape[1]):
-            img_interpolated = inferer.apply_attribute_delta(
-                img, deltaz,
-                interpolation_vector[cls, lv, :])
-            imgs_interpolated.append(img_interpolated)
-            # img_interpolated = util.tensor_to_pil(img_interpolated)
-            # img_interpolated.save('interpolation/interpolated_{:s}_{:0.2f}.png'.format(
-            #     dataset.attrs[cls],
-            #     interpolation_vector[cls, lv, cls]))
-        imgs_stacked = torch.stack(imgs_interpolated)
-        imgs_grid = make_grid(imgs_stacked, nrow=interpolation_vector.shape[1])
-        imgs = util.tensor_to_pil(imgs_grid)
-        imgs.save('interpolation/interpolated_{:s}.png'.format(dataset.attrs[cls]))
+    # interpolation_vector = util.make_interpolation_vector(hps.dataset.num_classes)
+    # img = Image.open('misc/test_celeba.png').convert('RGB')
+    # deltaz = util.load_deltaz('deltaz.npy')
+    # util.check_path('interpolation')
+    # for cls in range(interpolation_vector.shape[0]):
+    #     imgs_interpolated = []
+    #     for lv in range(interpolation_vector.shape[1]):
+    #         img_interpolated = inferer.apply_attribute_delta(
+    #             img, deltaz,
+    #             interpolation_vector[cls, lv, :])
+    #         imgs_interpolated.append(img_interpolated)
+    #         # img_interpolated = util.tensor_to_pil(img_interpolated)
+    #         # img_interpolated.save('interpolation/interpolated_{:s}_{:0.2f}.png'.format(
+    #         #     dataset.attrs[cls],
+    #         #     interpolation_vector[cls, lv, cls]))
+    #     imgs_stacked = torch.stack(imgs_interpolated)
+    #     imgs_grid = make_grid(imgs_stacked, nrow=interpolation_vector.shape[1])
+    #     imgs = util.tensor_to_pil(imgs_grid)
+    #     imgs.save('interpolation/interpolated_{:s}.png'.format(dataset.attrs[cls]))
