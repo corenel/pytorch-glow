@@ -11,8 +11,8 @@ from dataset import CelebA
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        'PyTorch implementation of "Glow: Generative Flow with Invertible 1x1 Convolutions"')
-    parser.add_argument('--profile', '-p', type=str,
+        description='PyTorch implementation of "Glow: Generative Flow with Invertible 1x1 Convolutions"')
+    parser.add_argument('profile', type=str,
                         default='profile/celeba.json',
                         help='path to profile file')
     return parser.parse_args()
