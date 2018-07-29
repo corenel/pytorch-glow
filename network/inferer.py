@@ -164,6 +164,8 @@ class Inferer:
         :return: processed image
         :rtype: torch.Tensor
         """
+        print('[Inferer] Applying attribute deltaz')
+
         if isinstance(deltaz, np.ndarray):
             deltaz = torch.Tensor(deltaz)
         assert len(interpolation) == self.num_classes
@@ -174,9 +176,11 @@ class Inferer:
         z = self.encode(img)
 
         # perform interpolation
-        z_interpolated = z.clone().cpu()
+        z_interpolated = z.clone()
         for i in range(len(interpolation)):
             z_delta = deltaz[i].mul(interpolation[i])
+            if self.use_cuda:
+                z_delta = z_delta.cuda()
             z_interpolated += z_delta
 
         # decode
