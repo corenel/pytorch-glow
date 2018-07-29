@@ -82,27 +82,33 @@ def compute_deltaz(ctx):
 
 
 @cli.command()
-@click.argument('image', type=click.Path(exists=True))
+@click.argument('image_path', type=click.Path(exists=True))
 @click.pass_context
-def reconstruct(ctx, image):
+def reconstruct(ctx, image_path):
     hps = ctx.obj['hps']
     inferer = ctx.obj['inferer']
 
     # get image list
     img_list = []
-    if os.path.isfile(image) and util.is_image(image):
-        img_list = [image]
-    elif os.path.isdir(image):
-        img_list = [f for f in os.listdir(image)
-                    if util.is_image(os.path.join(image, f))]
+    if os.path.isfile(image_path) and util.is_image(image_path):
+        img_list = [image_path]
+    elif os.path.isdir(image_path):
+        img_list = [os.path.join(image_path, f)
+                    for f in os.listdir(image_path)
+                    if util.is_image(os.path.join(image_path, f))]
 
     # reconstruct images
     img_grid_list = []
     util.check_path('reconstructed')
     for img_path in img_list:
         img = Image.open(img_path).convert('RGB')
-        x = util.pil_to_tensor(img)
-        z = inferer.encode(img)
+        x = util.pil_to_tensor(img,
+                               transform=transforms.Compose((
+                                   transforms.CenterCrop(160),
+                                   transforms.Resize(64),
+                                   transforms.ToTensor()
+                               )))
+        z = inferer.encode(x)
         x_ = inferer.decode(z)
         img_grid = torch.cat((x, x_.cpu()), dim=1)
         img_grid_list.append(img_grid)

@@ -443,7 +443,7 @@ def ndarray_to_tensor(img, shape=(64, 64, 3), bgr2rgb=True):
     return img
 
 
-def pil_to_tensor(img, shape=(64, 64, 3)):
+def pil_to_tensor(img, shape=(64, 64, 3), transform=None):
     """
     Convert PIL image to float tensor
 
@@ -451,13 +451,15 @@ def pil_to_tensor(img, shape=(64, 64, 3)):
     :type img: Image.Image
     :param shape: image shape in (H, W, C)
     :type shape: tuple or list
+    :param transform: image transform
     :return: tensor
     :rtype: torch.Tensor
     """
-    transform = transforms.Compose((
-        transforms.Resize(shape[0]),
-        transforms.ToTensor()
-    ))
+    if transform is None:
+        transform = transforms.Compose((
+            transforms.Resize(shape[0]),
+            transforms.ToTensor()
+        ))
     return transform(img)
 
 

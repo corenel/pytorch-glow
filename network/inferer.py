@@ -74,6 +74,8 @@ class Inferer:
                     img,
                     shape=self.hps.model.image_shape)
                 img = util.make_batch(img, self.batch_size)
+            elif len(img.shape) == 3:
+                img = util.make_batch(img, self.batch_size)
             if self.use_cuda:
                 img = img.cuda()
             z, _, _ = self.graph(img)
