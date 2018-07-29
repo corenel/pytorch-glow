@@ -2,9 +2,11 @@ import cv2
 import sys
 import signal
 import argparse
+import torch
 
 from PIL import Image
 from torchvision import transforms
+from torchvision.utils import make_grid
 
 from misc import util
 from network import Builder, Inferer
@@ -93,11 +95,17 @@ if __name__ == '__main__':
     deltaz = util.load_deltaz('deltaz.npy')
     util.check_path('interpolation')
     for cls in range(interpolation_vector.shape[0]):
+        imgs_interpolated = []
         for lv in range(interpolation_vector.shape[1]):
             img_interpolated = inferer.apply_attribute_delta(
                 img, deltaz,
                 interpolation_vector[cls, lv, :])
-            img_interpolated = util.tensor_to_pil(img_interpolated)
-            img_interpolated.save('interpolation/interpolated_{:s}_{:0.2f}.png'.format(
-                dataset.attrs[cls],
-                interpolation_vector[cls, lv, cls]))
+            imgs_interpolated.append(img_interpolated)
+            # img_interpolated = util.tensor_to_pil(img_interpolated)
+            # img_interpolated.save('interpolation/interpolated_{:s}_{:0.2f}.png'.format(
+            #     dataset.attrs[cls],
+            #     interpolation_vector[cls, lv, cls]))
+        imgs_stacked = torch.stack(imgs_interpolated)
+        imgs_grid = make_grid(imgs_stacked, nrow=interpolation_vector.shape[1])
+        imgs = util.tensor_to_pil(imgs_grid)
+        imgs.save('interpolation/interpolated_{:s}.png'.format(dataset.attrs[cls]))
