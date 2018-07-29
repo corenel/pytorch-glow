@@ -492,7 +492,7 @@ def save_deltaz(deltaz, save_dir):
     :type save_dir: str
     """
     check_path(save_dir)
-    np.savez_compressed(os.path.join(save_dir, 'deltaz.npz'), deltaz)
+    np.save(os.path.join(save_dir, 'deltaz.npy'), deltaz)
 
 
 def load_deltaz(path):

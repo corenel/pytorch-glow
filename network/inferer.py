@@ -156,12 +156,30 @@ class Inferer:
         Apply attribute delta to image by given interpolation vector
 
         :param img: given image
-        :type img: np.ndarray
+        :type img: torch.Tensor or np.numpy or Image.Image
         :param deltaz: delta vector of attributes in latent space
         :type deltaz: np.ndarray
         :param interpolation: interpolation vector
-        :type interpolation: np.ndarray or list[float]
+        :type interpolation: torch.Tensor or np.ndarray or list[float]
         :return: processed image
-        :rtype: np.ndarray
+        :rtype: torch.Tensor
         """
-        z = self.encode(torch.Tensor(img))
+        if isinstance(deltaz, np.ndarray):
+            deltaz = torch.Tensor(deltaz)
+        assert len(interpolation) == self.num_classes
+        assert deltaz.shape == torch.Size([self.num_classes,
+                                           *self.graph.flow.output_shapes[-1][1:]])
+
+        # encode
+        z = self.encode(img)
+
+        # perform interpolation
+        z_interpolated = z.clone().cpu()
+        for i in range(len(interpolation)):
+            z_delta = deltaz[i].mul(interpolation[i])
+            z_interpolated += z_delta
+
+        # decode
+        img = self.decode(z_interpolated)
+
+        return img
