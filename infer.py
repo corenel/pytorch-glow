@@ -73,16 +73,31 @@ if __name__ == '__main__':
     # util.save_deltaz(deltaz, '.')
 
     # 2. encode & decode
-    # img = Image.open('misc/test.png').convert('RGB')
+    # img = Image.open('misc/test_celeba.png').convert('RGB')
     # z = inferer.encode(img)
     # img = util.tensor_to_pil(inferer.decode(z))
     # img.save('reconstructed.png')
 
     # 3. apply delta
-    img = Image.open('misc/test.png').convert('RGB')
+    # img = Image.open('misc/test_celeba.png').convert('RGB')
+    # deltaz = util.load_deltaz('deltaz.npy')
+    # interpolation = [0.] * hps.dataset.num_classes
+    # interpolation[0] = 1.
+    # img_interpolated = inferer.apply_attribute_delta(img, deltaz, interpolation)
+    # img_interpolated = util.tensor_to_pil(img_interpolated)
+    # img_interpolated.save('interpolated.png')
+
+    # 4. batch apply
+    interpolation_vector = util.make_interpolation_vector(hps.dataset.num_classes)
+    img = Image.open('misc/test_celeba.png').convert('RGB')
     deltaz = util.load_deltaz('deltaz.npy')
-    interpolation = [0.] * hps.dataset.num_classes
-    interpolation[0] = 1.
-    img_interpolated = inferer.apply_attribute_delta(img, deltaz, interpolation)
-    img_interpolated = util.tensor_to_pil(img_interpolated)
-    img_interpolated.save('interpolated.png')
+    util.check_path('interpolation')
+    for cls in range(interpolation_vector.shape[0]):
+        for lv in range(interpolation_vector.shape[1]):
+            img_interpolated = inferer.apply_attribute_delta(
+                img, deltaz,
+                interpolation_vector[cls, lv, :])
+            img_interpolated = util.tensor_to_pil(img_interpolated)
+            img_interpolated.save('interpolation/interpolated_{:s}_{:0.2f}.png'.format(
+                dataset.attrs[cls],
+                interpolation_vector[cls, lv, cls]))

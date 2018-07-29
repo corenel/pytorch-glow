@@ -557,3 +557,30 @@ def make_batch(tensor, batch_size):
     """
     assert len(tensor.shape) == 3, 'Assume 3D input tensor'
     return tensor.unsqueeze(0).repeat(batch_size, 1, 1, 1)
+
+
+def make_interpolation_vector(num_classes, step=0.25,
+                              minimum=-1., maximum=1.):
+    """
+    Generate interpolation vector
+
+    :param num_classes: number of classes
+    :type num_classes: int
+    :param step: increasing step
+    :type step: float
+    :param minimum: minimum value
+    :type minimum: float
+    :param maximum: maximum value
+    :type maximum: float
+    :return: interpolation vector
+    :rtype: np.ndarray
+    """
+    num_levels = int((maximum - minimum) / step) + 1
+    levels = [-1. + step * i for i in range(num_levels)]
+
+    interpolation_vector = np.zeros([num_classes, num_levels, num_classes])
+    for cls in range(num_classes):
+        for lv in range(num_levels):
+            interpolation_vector[cls, lv, cls] = levels[lv]
+
+    return interpolation_vector
