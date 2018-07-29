@@ -48,7 +48,7 @@ class Inferer:
         :param eps_std: standard deviation of eps
         :type eps_std: float
         :return: generated image
-        :rtype: np.ndarray
+        :rtype: torch.Tensor
         """
         with torch.no_grad():
             # generate sample from model
@@ -57,7 +57,7 @@ class Inferer:
             # create image grid
             grid = make_grid(img)
 
-            return util.tensor_to_pil(grid)
+            return grid
 
     def encode(self, img):
         """
@@ -105,7 +105,6 @@ class Inferer:
         :return:
         :rtype:
         """
-        print('[Inferer] Computing attribute deltaz')
         with torch.no_grad():
             # initialize variables
             attrs_z_pos = np.zeros([self.num_classes, *self.graph.flow.output_shapes[-1][1:]])
@@ -164,8 +163,6 @@ class Inferer:
         :return: processed image
         :rtype: torch.Tensor
         """
-        print('[Inferer] Applying attribute deltaz')
-
         if isinstance(deltaz, np.ndarray):
             deltaz = torch.Tensor(deltaz)
         assert len(interpolation) == self.num_classes

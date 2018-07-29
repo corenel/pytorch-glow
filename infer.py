@@ -1,10 +1,11 @@
 import os
 import sys
+import click
 import signal
-import argparse
 import torch
 
 from PIL import Image
+from tqdm import tqdm
 from torchvision import transforms
 from torchvision.utils import make_grid
 
@@ -13,37 +14,17 @@ from network import Builder, Inferer
 from dataset import CelebA
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(
-        'PyTorch implementation of "Glow: Generative Flow with Invertible 1x1 Convolutions"')
-    parser.add_argument('profile', type=str,
-                        default='profile/celeba.json',
-                        help='path to profile file')
-    parser.add_argument('weights', type=str,
-                        default=None,
-                        help='path to pre-trained weights')
-    parser.add_argument('--delta', '-d', type=str,
-                        default=None,
-                        help='path to delta file')
-    return parser.parse_args()
-
-
-if __name__ == '__main__':
-    # this enables a Ctrl-C without triggering errors
-    signal.signal(signal.SIGINT, lambda x, y: sys.exit(0))
-
-    # parse arguments
-    args = parse_args()
-
-    # initialize logging
-    util.init_output_logging()
-
+@click.group(name='Inference for glow model')
+@click.option('--profile', type=click.Path(exists=True))
+@click.option('--snapshot', type=click.Path(exists=True))
+@click.pass_context
+def cli(ctx, profile, snapshot):
     # load hyper-parameters
-    hps = util.load_profile(args.profile)
+    hps = util.load_profile(profile)
     util.manual_seed(hps.ablation.seed)
-    if args.weights is not None:
+    if snapshot is not None:
         hps.general.warm_start = True
-        hps.general.pre_trained = args.weights
+        hps.general.pre_trained = snapshot
 
     # build graph
     builder = Builder(hps)
@@ -64,18 +45,58 @@ if __name__ == '__main__':
         devices=state['devices'],
         data_device=state['data_device']
     )
+    ctx.obj['hps'] = hps
+    ctx.obj['dataset'] = dataset
+    ctx.obj['inferer'] = inferer
 
-    # 0. sample
-    # img = inferer.sample(z=None, y_onehot=None, eps_std=0.5)
-    # img = Image.fromarray(img, 'RGB')
-    # img.save('sample.png')
 
-    # 1. compute deltaz
-    # deltaz = inferer.compute_attribute_delta(dataset)
-    # util.save_deltaz(deltaz, '.')
+@cli.command()
+@click.pass_context
+def sample(ctx):
+    hps = ctx.obj['hps']
+    inferer = ctx.obj['inferer']
+    # smaple
+    img = inferer.sample(z=None, y_onehot=None, eps_std=0.5)
+    # save result
+    result_subdir = util.create_result_subdir(hps.general.result_dir,
+                                              desc='sample',
+                                              profile=hps)
+    util.tensor_to_pil(img).save(os.path.join(result_subdir, 'sample.png'))
 
-    # 2. reconstruct
-    img_list = ['misc/test.png', 'misc/test_celeba.png']
+
+@cli.command()
+@click.pass_context
+def compute_deltaz(ctx):
+    hps = ctx.obj['hps']
+    inferer = ctx.obj['inferer']
+    dataset = ctx.obj['dataset']
+
+    # compute delta
+    deltaz = inferer.compute_attribute_delta(dataset)
+
+    # save result
+    result_subdir = util.create_result_subdir(hps.general.result_dir,
+                                              desc='deltaz',
+                                              profile=hps)
+    util.save_deltaz(deltaz, result_subdir)
+
+
+@cli.command()
+@click.argument('image', type=click.Path(exists=True))
+@click.pass_context
+def reconstruct(ctx, image):
+    hps = ctx.obj['hps']
+    inferer = ctx.obj['inferer']
+
+    # get image list
+    img_list = []
+    if os.path.isfile(image) and util.is_image(image):
+        img_list = [image]
+    elif os.path.isdir(image):
+        img_list = [f for f in os.listdir(image)
+                    if util.is_image(os.path.join(image, f))]
+
+    # reconstruct images
     img_grid_list = []
     util.check_path('reconstructed')
     for img_path in img_list:
@@ -86,35 +107,68 @@ if __name__ == '__main__':
         img_grid = torch.cat((x, x_.cpu()), dim=1)
         img_grid_list.append(img_grid)
         # util.tensor_to_pil(img_grid).save('reconstructed/{}'.format(os.path.basename(img_path)))
+
+    # generate grid of reconstructed images
     imgs_grid = make_grid(torch.stack(img_grid_list))
-    util.tensor_to_pil(imgs_grid).save('reconstructed/grid.png')
 
-    # 3. apply delta
-    # img = Image.open('misc/test_celeba.png').convert('RGB')
-    # deltaz = util.load_deltaz('deltaz.npy')
-    # interpolation = [0.] * hps.dataset.num_classes
-    # interpolation[0] = 1.
-    # img_interpolated = inferer.apply_attribute_delta(img, deltaz, interpolation)
-    # img_interpolated = util.tensor_to_pil(img_interpolated)
-    # img_interpolated.save('interpolated.png')
+    # save result
+    result_subdir = util.create_result_subdir(hps.general.result_dir,
+                                              desc='reconstruct',
+                                              profile=hps)
+    util.tensor_to_pil(imgs_grid).save(os.path.join(result_subdir, 'grid.png'))
 
-    # 4. batch apply
-    # interpolation_vector = util.make_interpolation_vector(hps.dataset.num_classes)
-    # img = Image.open('misc/test_celeba.png').convert('RGB')
-    # deltaz = util.load_deltaz('deltaz.npy')
-    # util.check_path('interpolation')
-    # for cls in range(interpolation_vector.shape[0]):
-    #     imgs_interpolated = []
-    #     for lv in range(interpolation_vector.shape[1]):
-    #         img_interpolated = inferer.apply_attribute_delta(
-    #             img, deltaz,
-    #             interpolation_vector[cls, lv, :])
-    #         imgs_interpolated.append(img_interpolated)
-    #         # img_interpolated = util.tensor_to_pil(img_interpolated)
-    #         # img_interpolated.save('interpolation/interpolated_{:s}_{:0.2f}.png'.format(
-    #         #     dataset.attrs[cls],
-    #         #     interpolation_vector[cls, lv, cls]))
-    #     imgs_stacked = torch.stack(imgs_interpolated)
-    #     imgs_grid = make_grid(imgs_stacked, nrow=interpolation_vector.shape[1])
-    #     imgs = util.tensor_to_pil(imgs_grid)
-    #     imgs.save('interpolation/interpolated_{:s}.png'.format(dataset.attrs[cls]))
+
+@cli.command()
+@click.argument('delta_file', type=click.Path(exists=True))
+@click.argument('image_file', type=click.Path(exists=True, dir_okay=False))
+@click.option('--batch', is_flag=True, default=True)
+@click.pass_context
+def interpolate(ctx, delta_file, image_file, batch):
+    hps = ctx.obj['hps']
+    inferer = ctx.obj['inferer']
+    dataset = ctx.obj['dataset']
+
+    img = Image.open(image_file).convert('RGB')
+    deltaz = util.load_deltaz(delta_file)
+    result_subdir = util.create_result_subdir(hps.general.result_dir,
+                                              desc='interpolation',
+                                              profile=hps)
+
+    if batch:
+        interpolation_vector = util.make_interpolation_vector(hps.dataset.num_classes)
+        for cls in range(interpolation_vector.shape[0]):
+            print('[Inferer] interpolating class "{}"'.format(dataset.attrs[cls]))
+            imgs_interpolated = []
+            progress = tqdm(range(interpolation_vector.shape[1]))
+            for lv in progress:
+                img_interpolated = inferer.apply_attribute_delta(
+                    img, deltaz,
+                    interpolation_vector[cls, lv, :])
+                imgs_interpolated.append(img_interpolated)
+                # img_interpolated = util.tensor_to_pil(img_interpolated)
+                # img_interpolated.save('interpolation/interpolated_{:s}_{:0.2f}.png'.format(
+                #     dataset.attrs[cls],
+                #     interpolation_vector[cls, lv, cls]))
+            imgs_stacked = torch.stack(imgs_interpolated)
+            imgs_grid = make_grid(imgs_stacked, nrow=interpolation_vector.shape[1])
+            imgs = util.tensor_to_pil(imgs_grid)
+            imgs.save(os.path.join(result_subdir,
+                                   'interpolated_{:s}.png'.format(dataset.attrs[cls])))
+    else:
+        interpolation = [0.] * hps.dataset.num_classes
+        interpolation[0] = 1.
+        img_interpolated = inferer.apply_attribute_delta(img, deltaz, interpolation)
+        img_interpolated = util.tensor_to_pil(img_interpolated)
+        img_interpolated.save(os.path.join(result_subdir,
+                                           'interpolated.png'))
+
+
+if __name__ == '__main__':
+    # this enables a Ctrl-C without triggering errors
+    signal.signal(signal.SIGINT, lambda x, y: sys.exit(0))
+
+    # initialize logging
+    util.init_output_logging()
+
+    # command group
+    cli(obj={})
