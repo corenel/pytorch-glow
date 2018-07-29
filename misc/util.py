@@ -1,5 +1,6 @@
 import os
 import re
+import cv2
 import sys
 import glob
 import json
@@ -7,7 +8,9 @@ import shutil
 import numpy as np
 import torch
 
+from PIL import Image
 from easydict import EasyDict
+from torchvision.transforms import transforms
 
 
 # Profile
@@ -390,12 +393,117 @@ def is_image(filepath):
     return extension.lower() in image_extensions
 
 
+def tensor_to_ndarray(tensor):
+    """
+    Convert float tensor into numpy image
+
+    :param tensor: input tensor
+    :type tensor: torch.Tensor
+    :return: numpy image
+    :rtype: np.ndarray
+    """
+    tensor_np = tensor.permute(1, 2, 0).cpu().numpy()
+    tensor_np = tensor_np.astype(np.float32)
+    tensor_np = (tensor_np * 255).astype(np.uint8)
+    return tensor_np
+
+
+def tensor_to_pil(tensor):
+    """
+    Convert float tensor into PIL image
+
+    :param tensor: input tensor
+    :type tensor: torch.Tensor
+    :return: PIL image
+    :rtype: Image.Image
+    """
+    transform = transforms.ToPILImage()
+    tensor = tensor.cpu()
+    return transform(tensor)
+
+
+def ndarray_to_tensor(img, shape=(64, 64, 3), bgr2rgb=True):
+    """
+    Convert numpy image to float tensor
+
+    :param img: numpy image
+    :type img: np.ndarray
+    :param shape: image shape in (H, W, C)
+    :type shape: tuple or list
+    :param bgr2rgb: convert color space from BGR to RGB
+    :type bgr2rgb: bool
+    :return: tensor
+    :rtype: torch.Tensor
+    """
+    if bgr2rgb:
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = cv2.resize(img, (shape[0], shape[1]))
+    img = (img / 255.0).astype(np.float32)
+    img = torch.Tensor(img).permute(2, 0, 1)
+    return img
+
+
+def pil_to_tensor(img, shape=(64, 64, 3)):
+    """
+    Convert PIL image to float tensor
+
+    :param img: PIL image
+    :type img: Image.Image
+    :param shape: image shape in (H, W, C)
+    :type shape: tuple or list
+    :return: tensor
+    :rtype: torch.Tensor
+    """
+    transform = transforms.Compose((
+        transforms.Resize(shape[0]),
+        transforms.ToTensor()
+    ))
+    return transform(img)
+
+
+def image_to_tensor(img, shape=(64, 64, 3), bgr2rgb=True):
+    """
+    Convert image to torch tensor
+
+    :param img: image
+    :type img: Image.Image or np.ndarray
+    :param shape: image shape in (H, W, C)
+    :type shape: tuple or list
+    :param bgr2rgb: convert color space from BGR to RGB
+    :type bgr2rgb: bool
+    :return: image tensor
+    :rtype: torch.Tensor
+    """
+    if isinstance(img, Image.Image):
+        return pil_to_tensor(img, shape)
+    if isinstance(np.ndarray, img):
+        return ndarray_to_tensor(img, shape, bgr2rgb)
+    else:
+        raise NotImplementedError('Unsupported image type: {}'.format(type(img)))
+
+
 def save_deltaz(deltaz, save_dir):
+    """
+    Save deltaz as numpy
+
+    :param deltaz: delta vector of attributes in latent space
+    :type deltaz: np.ndarray
+    :param save_dir: directory to save
+    :type save_dir: str
+    """
     check_path(save_dir)
     np.savez_compressed(os.path.join(save_dir, 'deltaz.npz'), deltaz)
 
 
 def load_deltaz(path):
+    """
+    Load deltaz as numpy
+
+    :param path: path to numpy file
+    :type path: str
+    :return: delta vector of attributes in latent space
+    :rtype: np.ndarray
+    """
     if os.path.exists(path):
         return np.load(path)
 
@@ -415,10 +523,37 @@ def manual_seed(seed):
 
 
 def _print(*args, verbose=True, **kwargs):
+    """
+    Print with condition
+
+    :param verbose: whether to verbose or not
+    :type verbose: bool
+    """
     if verbose:
         print(*args, **kwargs)
 
 
 def check_path(path):
+    """
+    Check existence of directory path. If not, then create it.
+
+    :param path: path to directory
+    :type path: str
+    """
     if not os.path.exists(path):
         os.makedirs(path)
+
+
+def make_batch(tensor, batch_size):
+    """
+    Generate fake batch
+
+    :param tensor: input tensor
+    :type tensor: torch.Tensor
+    :param batch_size: batch size
+    :type batch_size: int
+    :return: fake batch
+    :rtype: torch.Tensor
+    """
+    assert len(tensor.shape) == 3, 'Assume 3D input tensor'
+    return tensor.unsqueeze(0).repeat(batch_size, 1, 1, 1)

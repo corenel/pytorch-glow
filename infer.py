@@ -1,3 +1,4 @@
+import cv2
 import sys
 import signal
 import argparse
@@ -19,6 +20,9 @@ def parse_args():
     parser.add_argument('--weights', '-w', type=str,
                         default=None,
                         help='path to pre-trained weights')
+    parser.add_argument('--delta', '-d', type=str,
+                        default=None,
+                        help='path to delta file')
     return parser.parse_args()
 
 
@@ -58,8 +62,19 @@ if __name__ == '__main__':
         devices=state['devices'],
         data_device=state['data_device']
     )
+
+    # 0. sample
     # img = inferer.sample(z=None, y_onehot=None, eps_std=0.5)
     # img = Image.fromarray(img, 'RGB')
     # img.save('sample.png')
-    deltaz = inferer.compute_attribute_delta(dataset)
-    util.save_deltaz(deltaz, '.')
+
+    # 1. compute deltaz
+    # deltaz = inferer.compute_attribute_delta(dataset)
+    # util.save_deltaz(deltaz, '.')
+
+    # 2. encode & decode
+    img = Image.open('misc/test.png').convert('RGB')
+    z = inferer.encode(img)
+    img = util.tensor_to_pil(inferer.decode(z))
+    img.save('reconstructed.png')
+

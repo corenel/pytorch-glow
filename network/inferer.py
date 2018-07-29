@@ -5,7 +5,7 @@ from tqdm import tqdm
 from torchvision.utils import make_grid
 from torch.utils.data import DataLoader
 
-from misc import ops
+from misc import util
 
 
 class Inferer:
@@ -57,45 +57,62 @@ class Inferer:
             # create image grid
             grid = make_grid(img)
 
-            # convert to numpy
-            grid_np = grid.permute(1, 2, 0).cpu().numpy()
-            grid_np = grid_np.astype(np.float32)
-            grid_np = (grid_np * 255).astype(np.uint8)
-
-            return grid_np
+            return util.tensor_to_pil(grid)
 
     def encode(self, img):
         """
         Encode input image to latent features
 
         :param img: input image
-        :type img: torch.Tensor
+        :type img: torch.Tensor or np.numpy or Image.Image
         :return: latent features
         :rtype: torch.Tensor
         """
         with torch.no_grad():
-            x = img.unsqueeze(0).repeat(self.batch_size, 1, 1, 1)
+            if not torch.is_tensor(img):
+                img = util.image_to_tensor(
+                    img,
+                    shape=self.hps.model.image_shape)
+                img = util.make_batch(img, self.batch_size)
             if self.use_cuda:
-                x = x.cuda()
-            z, _, _ = self.graph(x)
+                img = img.cuda()
+            z, _, _ = self.graph(img)
+            return z[0, :, :, :]
+
+    def decode(self, z):
+        """
+
+        :param z: input latent feature vector
+        :type z: torch.Tensor
+        :return: decoded image
+        :rtype: torch.Tensor
+        """
+        with torch.no_grad():
+            if len(z.shape) == 3:
+                z = util.make_batch(z, self.batch_size)
+            if self.use_cuda:
+                z = z.cuda()
+
+            img = self.graph(z=z, y_onehot=None, reverse=True)[0, :, :, :]
+            return img
 
     def compute_attribute_delta(self, dataset):
         """
-        Compute feature vector delta of different attributes
+        Compute feature vector deltaz of different attributes
 
         :param dataset: dataset for training model
         :type dataset: torch.utils.data.Dataset
         :return:
         :rtype:
         """
-        print('[Inferer] Computing attribute delta')
+        print('[Inferer] Computing attribute deltaz')
         with torch.no_grad():
             # initialize variables
             attrs_z_pos = np.zeros([self.num_classes, *self.graph.flow.output_shapes[-1][1:]])
             attrs_z_neg = np.zeros([self.num_classes, *self.graph.flow.output_shapes[-1][1:]])
             num_z_pos = np.zeros(self.num_classes)
             num_z_neg = np.zeros(self.num_classes)
-            delta = np.zeros([self.num_classes, *self.graph.flow.output_shapes[-1][1:]])
+            deltaz = np.zeros([self.num_classes, *self.graph.flow.output_shapes[-1][1:]])
 
             data_loader = DataLoader(dataset, batch_size=self.batch_size,
                                      num_workers=self.hps.dataset.num_workers,
@@ -105,7 +122,7 @@ class Inferer:
             progress = tqdm(data_loader)
             for idx, batch in enumerate(progress):
                 # extract batch data
-                assert 'y_onehot' in batch.keys(), 'Compute attribute delta needs "y_onehot" in batch data'
+                assert 'y_onehot' in batch.keys(), 'Compute attribute deltaz needs "y_onehot" in batch data'
                 for i in batch:
                     batch[i] = batch[i].to(self.data_device)
                 x = batch['x']
@@ -124,12 +141,27 @@ class Inferer:
                             attrs_z_neg[cls] += z[i]
                             num_z_neg[cls] += 1
 
-            # compute delta
+            # compute deltaz
             num_z_pos = [max(1., float(num)) for num in num_z_pos]
             num_z_neg = [max(1., float(num)) for num in num_z_neg]
             for cls in range(self.num_classes):
                 mean_z_pos = attrs_z_pos[cls] / num_z_pos[cls]
                 mean_z_neg = attrs_z_neg[cls] / num_z_neg[cls]
-                delta[cls] = mean_z_pos - mean_z_neg
+                deltaz[cls] = mean_z_pos - mean_z_neg
 
-            return delta
+            return deltaz
+
+    def apply_attribute_delta(self, img, deltaz, interpolation):
+        """
+        Apply attribute delta to image by given interpolation vector
+
+        :param img: given image
+        :type img: np.ndarray
+        :param deltaz: delta vector of attributes in latent space
+        :type deltaz: np.ndarray
+        :param interpolation: interpolation vector
+        :type interpolation: np.ndarray or list[float]
+        :return: processed image
+        :rtype: np.ndarray
+        """
+        z = self.encode(torch.Tensor(img))
