@@ -422,8 +422,10 @@ class Glow(nn.Module):
         # z = x + module.GaussianDiag.eps(x, eps_std=1. / n_bins)
 
         # Initialize logdet
-        logdet_factor = ops.count_pixels(x)  # H * W
+        logdet_factor = x.shape[1] * ops.count_pixels(x)  # N = C * H * W
         objective = torch.zeros_like(x[:, 0, 0, 0])
+        # c = M * log(a), where a is determined by the discretization level
+        # of the data and M is the dimensionality of x
         objective += float(-np.log(n_bins)) * logdet_factor
 
         # Encode
@@ -431,6 +433,8 @@ class Glow(nn.Module):
 
         # Prior
         mean, logs = self.prior(y_onehot)
+        # x_tilde(i) = x(i) + u
+        # u ~ U(0,a), where a is determined by the discretization level of the data
         objective += module.GaussianDiag.logp(mean, logs, z)
 
         # Prediction loss
@@ -444,6 +448,7 @@ class Glow(nn.Module):
         nobj = -objective
         # negative log-likelihood
         nll = nobj / float(np.log(2.) * logdet_factor)
+
         return z, nll, y_logits
 
     def reverse_flow(self, z, y_onehot, eps_std=None):
